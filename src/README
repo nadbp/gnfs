@@ -1,0 +1,10 @@
+Assume you have installed fuse and grpc on your local machine.
+
+On your machine:
+make
+sudo mkdir /mnt/hello
+./greeter_server
+
+On a different terminal:
+sudo ./greeter_client -o allow_other /mnt/hello
+cat /mnt/hello/hello
