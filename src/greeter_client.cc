@@ -20,9 +20,15 @@
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
+using grpc::ClientReader;
 using helloworld::HelloRequest;
 using helloworld::HelloReply;
 using helloworld::Greeter;
+using helloworld::Path;
+using helloworld::Stbuf;
+using helloworld::Request;
+using helloworld::Empty;
+using helloworld::Directory;
 
 class GreeterClient {
  public:
@@ -55,6 +61,78 @@ class GreeterClient {
       return "RPC failed";
     }
   }
+
+int xmp_mkdir(const char *path, mode_t mode)
+{
+  ClientContext context;
+  Request req;
+  req.set_path(path);
+  req.set_mode(mode);
+  Empty empty;
+
+// The actual RPC.  
+Status status = stub_->xmp_mkdir(&context, req, &empty);
+
+// Act upon its status.
+    if (status.ok()) {
+      return 0;
+    } else {
+      std::cout << status.error_code() << ": " << status.error_message()
+                << std::endl;
+      return 1;
+    }
+}
+
+int grpc_getattr(const char *client_path, struct stat *statbuf)
+{
+  ClientContext context;
+  Path pathName;
+  pathName.set_path(client_path);
+  Stbuf stbuf;
+
+// The actual RPC.  
+Status status = stub_->grpc_getattr(&context, pathName, &stbuf);
+    memset(statbuf, 0, sizeof(struct stat));
+// Act upon its status.
+    if (status.ok()) {
+      statbuf->st_mode = stbuf.stmode();
+	  statbuf->st_nlink = stbuf.stnlink();
+	  statbuf->st_size = stbuf.stsize();
+      return 0;
+    } else {
+      std::cout << status.error_code() << ": " << status.error_message()
+                << std::endl;
+      return 1;
+    }
+}
+
+int grpc_readdir(const char *client_path, void *buf, fuse_fill_dir_t filler)
+{
+  ClientContext context;
+  Path pathName;
+  pathName.set_path(client_path);
+  Directory directory;
+
+  std::unique_ptr<ClientReader<Directory> >reader(
+           stub_->grpc_readdir(&context, pathName));
+   while (reader->Read(&directory)){
+   	struct stat st;
+	memset(&st, 0, sizeof(st));
+	st.st_ino = directory.dino();
+	st.st_mode = directory.dtype() << 12;
+	if (filler(buf, directory.dname().c_str(), &st, 0, static_cast<fuse_fill_dir_flags>(0)))
+		break; 
+   }
+
+   Status status = reader->Finish();
+   if (status.ok()) {
+      std::cout << "readdir rpc succeeded." << std::endl;
+      return 0;
+    } else {
+      std::cout << "readdir rpc failed." << std::endl;
+      return 1;
+	}
+}
 
  private:
   std::unique_ptr<Greeter::Stub> stub_;
@@ -99,6 +177,8 @@ static int hello_getattr(const char *path, struct stat *stbuf,
 	(void) fi;
 	int res = 0;
 
+	std::cout<<__FUNCTION__<<std::endl;
+
 	memset(stbuf, 0, sizeof(struct stat));
 	if (strcmp(path, "/") == 0) {
 		stbuf->st_mode = S_IFDIR | 0755;
@@ -129,6 +209,16 @@ static int hello_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	filler(buf, options.filename, NULL, 0, static_cast<fuse_fill_dir_flags>(0));
 
 	return 0;
+}
+
+static int grpc_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
+			 off_t offset, struct fuse_file_info *fi,
+			 enum fuse_readdir_flags flags)
+{
+	(void) offset;
+	(void) fi;
+	(void) flags;
+	return options.greeter->grpc_readdir(path, buf, filler);
 }
 
 static int hello_open(const char *path, struct fuse_file_info *fi)
@@ -165,13 +255,26 @@ static int hello_read(const char *path, char *buf, size_t size, off_t offset,
 	return size;
 }
 
+static int grpc_getattr(const char *path, struct stat *statbuf,struct fuse_file_info *fi)
+{
+  (void) fi;
+  return options.greeter->grpc_getattr(path, statbuf);
+} 
+
+static int xmp_mkdir(const char *path, mode_t mode)
+{
+  //mode=S_IRWXU | S_IRWXG | S_IRWXO
+  return options.greeter->xmp_mkdir(path, mode);
+}
+
 static struct hello_operations : fuse_operations {
 	hello_operations() {
 		init    = hello_init;
-		getattr	= hello_getattr;
-		readdir	= hello_readdir;
+		getattr	= hello_getattr;//grpc_getattr;
+		readdir	= grpc_readdir; //hello_readdir;
 		open	= hello_open;
 		read	= hello_read;
+        mkdir	= xmp_mkdir;
     }
 } hello_oper_init;
 

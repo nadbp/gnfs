@@ -40,6 +40,9 @@ package helloworld;
 service Greeter {
   // Sends a greeting
   rpc SayHello (HelloRequest) returns (HelloReply) {}
+  rpc xmp_mkdir (Request) returns (Empty) {}
+  rpc grpc_getattr (Path) returns (Stbuf) {}
+  rpc grpc_readdir (Path) returns (stream Directory) {} 
 }
 
 // The request message containing the user's name.
@@ -51,3 +54,30 @@ message HelloRequest {
 message HelloReply {
   string message = 1;
 }
+
+message Path {
+  string path = 1;
+}
+
+message Stbuf {
+  uint32 stmode = 1;
+  uint64 stnlink = 2;
+  sint64 stsize = 3;
+}
+
+message Directory {
+  string dname = 1;
+  uint32 dino = 2;
+  uint32 dtype = 3;
+}
+
+message Request {
+  string path = 1;
+  int32 mode=2;
+}
+
+message Empty {
+  
+}
+
+
