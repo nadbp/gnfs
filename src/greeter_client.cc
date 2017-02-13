@@ -270,7 +270,7 @@ static int xmp_mkdir(const char *path, mode_t mode)
 static struct hello_operations : fuse_operations {
 	hello_operations() {
 		init    = hello_init;
-		getattr	= hello_getattr;//grpc_getattr;
+		getattr	= grpc_getattr;//hello_getattr;//grpc_getattr;
 		readdir	= grpc_readdir; //hello_readdir;
 		open	= hello_open;
 		read	= hello_read;
