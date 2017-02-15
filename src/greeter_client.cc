@@ -7,7 +7,7 @@
 #include <fcntl.h>
 #include <stddef.h>
 #include <assert.h>
-
+#include <sys/stat.h>//open
 #include <iostream>
 #include <memory>
 #include <string>
@@ -29,6 +29,10 @@ using helloworld::Stbuf;
 using helloworld::Request;
 using helloworld::Empty;
 using helloworld::Directory;
+using helloworld::PathFlags;
+using helloworld::FileHandle;
+using helloworld::ReadReq;
+using helloworld::Buffer;
 
 class GreeterClient {
  public:
@@ -134,6 +138,34 @@ int grpc_readdir(const char *client_path, void *buf, fuse_fill_dir_t filler)
 	}
 }
 
+int grpc_open(const char *client_path, int flags, int fh)
+{
+	ClientContext context;
+  	PathFlags path_flags;
+  	path_flags.set_path(client_path);
+  	path_flags.set_flags(flags);
+  	FileHandle file_handle;
+  	Status status = stub_->grpc_open(&context, path_flags, &file_handle);
+  	fh=file_handle.fh();
+  	return 0;
+}
+
+int grpc_read(const char *client_path, char *buf, size_t size, off_t offset, int fh)
+{
+	ClientContext context;
+  	ReadReq read_req;
+  	read_req.set_path(client_path);
+  	read_req.set_size(size);
+  	read_req.set_offset(offset);
+  	read_req.set_fh(fh);
+  	Buffer buffer;
+  	Status status = stub_->grpc_read(&context, read_req, &buffer);
+  	std::string buf_string(buffer.buffer());
+  	std::cout<<"buf_string="<<buf_string<<std::endl;
+  	std::strcpy(buf, buf_string.c_str());
+  	std::cout<<"*buf="<<*buf<<std::endl;
+  	return buffer.nbytes();
+}
  private:
   std::unique_ptr<Greeter::Stub> stub_;
 };
@@ -232,6 +264,11 @@ static int hello_open(const char *path, struct fuse_file_info *fi)
 	return 0;
 }
 
+static int grpc_open(const char *path, struct fuse_file_info *fi)
+{
+	return options.greeter->grpc_open(path, fi->flags, fi->fh);
+}
+
 static int hello_read(const char *path, char *buf, size_t size, off_t offset,
 		      struct fuse_file_info *fi)
 {
@@ -255,6 +292,12 @@ static int hello_read(const char *path, char *buf, size_t size, off_t offset,
 	return size;
 }
 
+static int grpc_read(const char *path, char *buf, size_t size, off_t offset,
+		      struct fuse_file_info *fi)
+{
+	return options.greeter->grpc_read(path, buf, size, offset, fi->fh);
+}
+
 static int grpc_getattr(const char *path, struct stat *statbuf,struct fuse_file_info *fi)
 {
   (void) fi;
@@ -272,8 +315,8 @@ static struct hello_operations : fuse_operations {
 		init    = hello_init;
 		getattr	= grpc_getattr;//hello_getattr;//grpc_getattr;
 		readdir	= grpc_readdir; //hello_readdir;
-		open	= hello_open;
-		read	= hello_read;
+		open	= grpc_open; //hello_open;
+		read	= grpc_read; //hello_read;
         mkdir	= xmp_mkdir;
     }
 } hello_oper_init;
