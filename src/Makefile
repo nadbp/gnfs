@@ -35,7 +35,7 @@ CXX = g++
 SHELL = /bin/sh
 PKGFLAGS = -Wall `pkg-config fuse3 --cflags`
 CPPFLAGS += -I/usr/local/include -pthread $(PKGFLAGS)
-CXXFLAGS += -std=c++11
+CXXFLAGS += -g -std=c++11
 LDFLAGS += -L/usr/local/lib `pkg-config fuse3 --libs` `pkg-config --libs grpc++ grpc`       \
            -Wl,--no-as-needed -lgrpc++_reflection -Wl,--as-needed \
            -lprotobuf -lpthread -ldl -Wl,--no-as-needed -lrt

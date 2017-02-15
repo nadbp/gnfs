@@ -9,11 +9,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <errno.h>
-<<<<<<< HEAD
 #include <unistd.h>
-=======
-#include <unistd.h>//pread()
->>>>>>> 4e842f2417d295cdc311319e916fbb7430ce9fd1
 
 
 #ifdef BAZEL_BUILD
@@ -36,16 +32,13 @@ using helloworld::Stbuf;
 using helloworld::Request;
 using helloworld::Empty;
 using helloworld::Directory;
-<<<<<<< HEAD
 using helloworld::WriteBytes;
 using helloworld::WriteRequest;
-=======
 using helloworld::PathFlags;
 using helloworld::FileHandle;
 using helloworld::ReadReq;
 using helloworld::Buffer;
 
->>>>>>> 4e842f2417d295cdc311319e916fbb7430ce9fd1
  void translatePath(const char* client_path,char * server_path){
    strcat(server_path,"./798");
    strcat(server_path+4,client_path);

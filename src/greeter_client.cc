@@ -29,15 +29,12 @@ using helloworld::Stbuf;
 using helloworld::Request;
 using helloworld::Empty;
 using helloworld::Directory;
-<<<<<<< HEAD
 using helloworld::WriteRequest;
 using helloworld::WriteBytes;
-=======
 using helloworld::PathFlags;
 using helloworld::FileHandle;
 using helloworld::ReadReq;
 using helloworld::Buffer;
->>>>>>> 4e842f2417d295cdc311319e916fbb7430ce9fd1
 
 class GreeterClient {
  public:
@@ -143,7 +140,6 @@ int grpc_readdir(const char *client_path, void *buf, fuse_fill_dir_t filler)
 	}
 }
 
-<<<<<<< HEAD
 int grpc_write(const char * path, const char* buffer, size_t size, off_t offset, struct fuse_file_info *fi) {
     ClientContext context;
     WriteRequest req;
@@ -165,7 +161,6 @@ int grpc_write(const char * path, const char* buffer, size_t size, off_t offset,
 
 }
 
-=======
 int grpc_open(const char *client_path, int flags, int fh)
 {
 	ClientContext context;
@@ -194,7 +189,6 @@ int grpc_read(const char *client_path, char *buf, size_t size, off_t offset, int
   	std::cout<<"*buf="<<*buf<<std::endl;
   	return buffer.nbytes();
 }
->>>>>>> 4e842f2417d295cdc311319e916fbb7430ce9fd1
  private:
   std::unique_ptr<Greeter::Stub> stub_;
 };
