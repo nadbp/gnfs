@@ -40,7 +40,7 @@ package helloworld;
 service Greeter {
   // Sends a greeting
   rpc SayHello (HelloRequest) returns (HelloReply) {}
-  rpc xmp_mkdir (Request) returns (Empty) {}
+  rpc grpc_mkdir (Request) returns (Errno) {}
   rpc grpc_getattr (Path) returns (Stbuf) {}
   rpc grpc_readdir (Path) returns (stream Directory) {}
   rpc grpc_write (WriteRequest) returns (WriteBytes) {}
@@ -67,12 +67,14 @@ message Stbuf {
   uint32 stmode = 1;
   uint64 stnlink = 2;
   sint64 stsize = 3;
+  int32 err=4;
 }
 
 message Directory {
   string dname = 1;
   uint32 dino = 2;
   uint32 dtype = 3;
+  int32 err=4;
 }
 
 message Request {
@@ -80,8 +82,8 @@ message Request {
   int32 mode=2;
 }
 
-message Empty {
-  
+message Errno {
+  int32 err=1;
 }
 
 message WriteBytes {

@@ -30,7 +30,7 @@ using helloworld::Greeter;
 using helloworld::Path;
 using helloworld::Stbuf;
 using helloworld::Request;
-using helloworld::Empty;
+using helloworld::Errno;
 using helloworld::Directory;
 using helloworld::WriteBytes;
 using helloworld::WriteRequest;
@@ -86,11 +86,19 @@ class GreeterServiceImpl final : public Greeter::Service {
     return Status::OK;
   }
 
-  Status xmp_mkdir(ServerContext* context, const Request* request,
-                  Empty* empty) override {
+  Status grpc_mkdir(ServerContext* context, const Request* request,
+                  Errno* err) override {
     char server_path[512] ={0};
     translatePath(request->path().c_str(),server_path);
-    mkdir(server_path, request->mode());
+    printf("Server before mkdir: %s, Path : %s, Translated path: %s\n",__FUNCTION__,request->path().c_str(), server_path);
+    int res=mkdir(server_path, request->mode());
+    printf("Server after mkdir: %s, Path : %s, Translated path: %s\n",__FUNCTION__,request->path().c_str(), server_path);
+
+    if(res == -1){
+       perror(strerror(errno));
+       err->set_err(-errno);
+       return Status::CANCELLED;
+    }
     return Status::OK;
   }
 
@@ -102,18 +110,21 @@ class GreeterServiceImpl final : public Greeter::Service {
     printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,client_path->path().c_str(), server_path);
 
     struct stat stemp = {0};
-
-  if(lstat(server_path,&stemp)==-1){
-    //int error = errno;
-    //printf("error in the server %d:\n",error);
-    perror(strerror(errno));
-    return Status::CANCELLED;
-  }else{
+    int res=lstat(server_path,&stemp);
     stbuf->set_stmode(stemp.st_mode);
     stbuf->set_stnlink(stemp.st_nlink);
     stbuf->set_stsize(stemp.st_size);
-  }  
+  if(res==-1){
+    perror(strerror(errno));
+    stbuf->set_err(errno);
+    printf("errno: %d\n", stbuf->err());
+    std::cout<<"-errno="<<-errno<<std::endl;
+    return Status::CANCELLED;
+  }else{
+    stbuf->set_err(0);
     return Status::OK;
+  }  
+    
   }
 
   Status grpc_readdir(ServerContext* context, const Path* client_path, 
@@ -127,6 +138,7 @@ class GreeterServiceImpl final : public Greeter::Service {
       dp = opendir(server_path);
       if (dp == NULL){
         perror(strerror(errno));
+        directory.set_err(-errno);
         return Status::CANCELLED;
       }
       while ((de = readdir(dp)) != NULL){
@@ -135,6 +147,7 @@ class GreeterServiceImpl final : public Greeter::Service {
         directory.set_dtype(de->d_type);
         writer->Write(directory);
       }
+      directory.set_err(0);
       return Status::OK;
   }
 
