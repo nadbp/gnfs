@@ -9,7 +9,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <errno.h>
-
+#include <unistd.h>
 
 
 #ifdef BAZEL_BUILD
@@ -32,7 +32,8 @@ using helloworld::Stbuf;
 using helloworld::Request;
 using helloworld::Empty;
 using helloworld::Directory;
-
+using helloworld::WriteBytes;
+using helloworld::WriteRequest;
  void translatePath(const char* client_path,char * server_path){
    strcat(server_path,"./798");
    strcat(server_path+4,client_path);
@@ -49,6 +50,34 @@ class GreeterServiceImpl final : public Greeter::Service {
     std::string prefix("Hello ");
     std::cout<<request->name()<<std::endl;
     reply->set_message(prefix + request->name());
+    return Status::OK;
+  }
+
+  Status grpc_write(ServerContext* context, const WriteRequest* req, WriteBytes* noBytes ) override {
+    int fd, nbytes;
+    char server_path[512] = {0};
+    translatePath(req->path().c_str(), server_path);
+    printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,req->path().c_str(), server_path);
+
+    fd = open(server_path, O_WRONLY);
+    if(fd == 0) {
+      printf("fail to open %s\n", server_path);
+      noBytes->set_nbytes(-1);
+      return Status::CANCELLED;
+    }
+    
+    nbytes = pwrite(fd, req->buffer().c_str(), req->size(), req->offset());
+    if(nbytes < 0) {
+        printf("File system write failed zero data write\n");
+        noBytes->set_nbytes(nbytes);
+        return Status::CANCELLED;
+    } 
+
+    if(fd > 0) {
+        close(fd);
+    }
+
+    noBytes->set_nbytes(nbytes);
     return Status::OK;
   }
 

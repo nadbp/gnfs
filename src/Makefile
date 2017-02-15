@@ -31,7 +31,7 @@
 
 #HOST_SYSTEM = $(shell uname | cut -f 1 -d_)
 #SYSTEM ?= $(HOST_SYSTEM)
-CXX = g++-4.7
+CXX = g++
 SHELL = /bin/sh
 PKGFLAGS = -Wall `pkg-config fuse3 --cflags`
 CPPFLAGS += -I/usr/local/include -pthread $(PKGFLAGS)

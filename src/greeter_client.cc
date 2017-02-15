@@ -29,6 +29,8 @@ using helloworld::Stbuf;
 using helloworld::Request;
 using helloworld::Empty;
 using helloworld::Directory;
+using helloworld::WriteRequest;
+using helloworld::WriteBytes;
 
 class GreeterClient {
  public:
@@ -132,6 +134,27 @@ int grpc_readdir(const char *client_path, void *buf, fuse_fill_dir_t filler)
       std::cout << "readdir rpc failed." << std::endl;
       return 1;
 	}
+}
+
+int grpc_write(const char * path, const char* buffer, size_t size, off_t offset, struct fuse_file_info *fi) {
+    ClientContext context;
+    WriteRequest req;
+    req.set_path(path);
+    req.set_buffer(buffer);
+    req.set_size(size);
+    req.set_offset(offset);
+    req.set_fh(fi->fh);
+    WriteBytes nbytes;
+
+    Status s = stub_->grpc_write(&context, req, &nbytes);
+    if(s.ok()) {
+        std::cout<< "write rpc succeeded." << std::endl;
+    } else {
+        std::cout << "write rpc failed." << std::endl;
+    }
+
+    return nbytes.nbytes();
+
 }
 
  private:
@@ -267,6 +290,11 @@ static int xmp_mkdir(const char *path, mode_t mode)
   return options.greeter->xmp_mkdir(path, mode);
 }
 
+static int grpc_write(const char* path, const char* buffer, size_t size, off_t offset, struct fuse_file_info *fi) 
+{
+    return options.greeter->grpc_write(path, buffer, size, offset, fi);
+}
+
 static struct hello_operations : fuse_operations {
 	hello_operations() {
 		init    = hello_init;
@@ -275,6 +303,7 @@ static struct hello_operations : fuse_operations {
 		open	= hello_open;
 		read	= hello_read;
         mkdir	= xmp_mkdir;
+        write   = grpc_write;
     }
 } hello_oper_init;
 
