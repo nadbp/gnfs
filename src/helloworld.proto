@@ -47,6 +47,7 @@ service Greeter {
  // rpc grpc_readdir (Path) returns (stream Directory) {} 
   rpc grpc_open (PathFlags) returns (FileHandle) {} 
   rpc grpc_read (ReadReq) returns (Buffer) {}
+  rpc grpc_flush (FlushReq) returns (Empty) {}
 }
 
 // The request message containing the user's name.
@@ -94,6 +95,11 @@ message WriteRequest {
   int32 size = 3;
   int32 offset = 4;
   int32 fh = 5;
+}
+
+message FlushReq {
+  string path = 1;
+  int32 fh = 2;
 }
 
 message PathFlags{
