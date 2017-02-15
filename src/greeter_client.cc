@@ -35,6 +35,7 @@ using helloworld::PathFlags;
 using helloworld::FileHandle;
 using helloworld::ReadReq;
 using helloworld::Buffer;
+using helloworld::FlushReq;
 
 class GreeterClient {
  public:
@@ -167,16 +168,35 @@ int grpc_write(const char * path, const char* buffer, size_t size, off_t offset,
 
 }
 
-int grpc_open(const char *client_path, int flags, int fh)
+int grpc_flush(const char* path, struct fuse_file_info *fi) 
+{
+    ClientContext context;
+    FlushReq req;
+    req.set_path(path);
+    req.set_fh(fi->fh);
+    Empty empty;
+
+    Status s = stub_->grpc_flush(&context, req, &empty);
+    if(s.ok()) {
+        std::cout << "flush rpc succeeded." << std::endl;
+    } else {
+        std::cout << "flush rpc failed." << std::endl;
+        return -1;
+    }
+    return 0;
+}
+
+int grpc_open(const char *client_path, struct fuse_file_info *fi)
 {
 	ClientContext context;
   	PathFlags path_flags;
   	path_flags.set_path(client_path);
-  	path_flags.set_flags(flags);
+  	path_flags.set_flags(fi->flags);
   	FileHandle file_handle;
   	Status status = stub_->grpc_open(&context, path_flags, &file_handle);
-  	fh=file_handle.fh();
-  	return 0;
+  	//fh=file_handle.fh();
+    fi->fh = file_handle.fh();
+    return 0;
 }
 
 int grpc_read(const char *client_path, char *buf, size_t size, off_t offset, int fh)
@@ -244,7 +264,8 @@ static int grpc_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 static int grpc_open(const char *path, struct fuse_file_info *fi)
 {
-	return options.greeter->grpc_open(path, fi->flags, fi->fh);
+//	return options.greeter->grpc_open(path, fi->flags, fi->fh);
+    return options.greeter->grpc_open(path, fi);
 }
 
 static int grpc_read(const char *path, char *buf, size_t size, off_t offset,
@@ -270,6 +291,12 @@ static int grpc_write(const char* path, const char* buffer, size_t size, off_t o
     return options.greeter->grpc_write(path, buffer, size, offset, fi);
 }
 
+static int grpc_flush(const char* path, struct fuse_file_info *fi) 
+{
+    return options.greeter->grpc_flush(path, fi);
+}
+
+
 static struct hello_operations : fuse_operations {
 	hello_operations() {
 		init    = hello_init;
@@ -279,6 +306,7 @@ static struct hello_operations : fuse_operations {
 		read	= grpc_read; //hello_read;
         mkdir	= grpc_mkdir;
         write   = grpc_write;
+        flush   = grpc_flush;
     }
 } hello_oper_init;
 
