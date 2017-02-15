@@ -38,7 +38,8 @@ using helloworld::PathFlags;
 using helloworld::FileHandle;
 using helloworld::ReadReq;
 using helloworld::Buffer;
-
+using helloworld::Empty;
+using helloworld::FlushReq;
  void translatePath(const char* client_path,char * server_path){
    strcat(server_path,"./798");
    strcat(server_path+4,client_path);
@@ -98,6 +99,33 @@ class GreeterServiceImpl final : public Greeter::Service {
        perror(strerror(errno));
        err->set_err(-errno);
        return Status::CANCELLED;
+    }
+    return Status::OK;
+  }
+
+  Status grpc_flush(ServerContext* context, const FlushReq* req, Empty* emtpy) override {
+    int fd, nbytes;
+    char server_path[512] = {0};
+    translatePath(req->path().c_str(), server_path);
+    printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,req->path().c_str(), server_path);
+    fd = req->fh();
+    //printf("file handle: %d\n", req->fh());
+    //fd = open(server_path, O_WRONLY);                
+    //printf("file handle open: %d\n", fd);
+    if(fd == 0) {
+        printf("fail to get file %s\n", server_path);
+        return Status::CANCELLED;
+    }
+    nbytes = fsync(fd);
+    if(nbytes < 0) {
+        printf("File system fsync failed\n");
+        return Status::CANCELLED;
+    }
+
+    if(fd > 0) {
+
+        close(fd);
+    
     }
     return Status::OK;
   }

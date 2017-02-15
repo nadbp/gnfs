@@ -35,6 +35,7 @@ using helloworld::PathFlags;
 using helloworld::FileHandle;
 using helloworld::ReadReq;
 using helloworld::Buffer;
+using helloworld::Empty;
 using helloworld::FlushReq;
 
 class GreeterClient {

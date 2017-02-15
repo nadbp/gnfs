@@ -125,3 +125,5 @@ message Buffer{
   int32 nbytes = 2;
 }
 
+message Empty{
+}
