@@ -40,6 +40,8 @@ using helloworld::ReadReq;
 using helloworld::Buffer;
 using helloworld::Empty;
 using helloworld::FlushReq;
+using helloworld::RenameReq;
+
  void translatePath(const char* client_path,char * server_path){
    strcat(server_path,"./798");
    strcat(server_path+4,client_path);
@@ -230,6 +232,25 @@ class GreeterServiceImpl final : public Greeter::Service {
       free(buf);
       return Status::OK;
    }
+    Status grpc_rename(ServerContext* context, const RenameReq* rename_req, 
+    Errno* err)override {
+      char server_from_path[512] ={0};
+      translatePath(rename_req->from().c_str(),server_from_path);
+      printf("Server : -From %s, Path : %s, Translated path: %s\n",__FUNCTION__,rename_req->from().c_str(), server_from_path);
+      
+      char server_to_path[512] ={0};
+      translatePath(rename_req->to().c_str(),server_to_path);
+      printf("Server : -To %s, Path : %s, Translated path: %s\n",__FUNCTION__,rename_req->to().c_str(), server_to_path);
+      
+      if (rename_req->flags())
+        err->set_err(-EINVAL);
+
+      int res = rename(server_from_path, server_to_path);
+      if(res == -1)
+        err->set_err(-errno);
+      err->set_err(0);
+      return Status::OK;    
+  }
 
 };
 

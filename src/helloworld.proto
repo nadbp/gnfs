@@ -48,6 +48,7 @@ service Greeter {
   rpc grpc_open (PathFlags) returns (FileHandle) {} 
   rpc grpc_read (ReadReq) returns (Buffer) {}
   rpc grpc_flush (FlushReq) returns (Empty) {}
+  rpc grpc_rename (RenameReq) returns (Errno) {}
 }
 
 // The request message containing the user's name.
@@ -58,6 +59,12 @@ message HelloRequest {
 // The response message containing the greetings
 message HelloReply {
   string message = 1;
+}
+
+message RenameReq {
+  string from = 1;
+  string to = 2;
+  int32 flags=3;
 }
 
 message Path {
