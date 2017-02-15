@@ -103,7 +103,7 @@ class GreeterServiceImpl final : public Greeter::Service {
     return Status::OK;
   }
 
-  Status grpc_flush(ServerContext* context, const FlushReq* req, Empty* emtpy) override {
+  Status grpc_flush(ServerContext* context, const FlushReq* req, Errno* err) override {
     int fd, nbytes;
     char server_path[512] = {0};
     translatePath(req->path().c_str(), server_path);
@@ -114,11 +114,13 @@ class GreeterServiceImpl final : public Greeter::Service {
     //printf("file handle open: %d\n", fd);
     if(fd == 0) {
         printf("fail to get file %s\n", server_path);
+        err->set_err(-errno);
         return Status::CANCELLED;
     }
     nbytes = fsync(fd);
     if(nbytes < 0) {
         printf("File system fsync failed\n");
+        err->set_err(-errno);
         return Status::CANCELLED;
     }
 
@@ -127,6 +129,9 @@ class GreeterServiceImpl final : public Greeter::Service {
         close(fd);
     
     }
+
+    err->set_err(0);
+
     return Status::OK;
   }
 
@@ -195,6 +200,24 @@ class GreeterServiceImpl final : public Greeter::Service {
       }     
   }
 
+
+  Status grpc_unlink(ServerContext context, const Path* path, Errno * err) {
+      int res;
+      char server_path[512] ={0};
+      translatePath(path->path().c_str(),server_path);
+      printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,path->path().c_str(), server_path);
+        
+      res = unlink(server_path);
+      if(res == -1){
+        err->set_err(-errno);
+      } else {
+          err->set_err(0);
+      }
+
+      return Status::OK;
+    
+  }
+
   Status grpc_read(ServerContext* context, const ReadReq* read_req, 
     Buffer* buffer)override{
       char server_path[512] ={0};
@@ -230,6 +253,7 @@ class GreeterServiceImpl final : public Greeter::Service {
       free(buf);
       return Status::OK;
    }
+
 
 };
 
