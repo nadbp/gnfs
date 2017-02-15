@@ -9,7 +9,11 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <errno.h>
+<<<<<<< HEAD
 #include <unistd.h>
+=======
+#include <unistd.h>//pread()
+>>>>>>> 4e842f2417d295cdc311319e916fbb7430ce9fd1
 
 
 #ifdef BAZEL_BUILD
@@ -32,8 +36,16 @@ using helloworld::Stbuf;
 using helloworld::Request;
 using helloworld::Empty;
 using helloworld::Directory;
+<<<<<<< HEAD
 using helloworld::WriteBytes;
 using helloworld::WriteRequest;
+=======
+using helloworld::PathFlags;
+using helloworld::FileHandle;
+using helloworld::ReadReq;
+using helloworld::Buffer;
+
+>>>>>>> 4e842f2417d295cdc311319e916fbb7430ce9fd1
  void translatePath(const char* client_path,char * server_path){
    strcat(server_path,"./798");
    strcat(server_path+4,client_path);
@@ -132,6 +144,58 @@ class GreeterServiceImpl final : public Greeter::Service {
       }
       return Status::OK;
   }
+
+  Status grpc_open(ServerContext* context, const PathFlags* path_flags, 
+    FileHandle* fh)override {
+      char server_path[512] ={0};
+      translatePath(path_flags->path().c_str(),server_path);
+      printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,path_flags->path().c_str(), server_path);
+      
+      int file_handle= open (server_path ,path_flags->flags());
+      if(file_handle == -1){
+        perror(strerror(errno));
+        return Status::CANCELLED;
+      }else{
+        fh->set_fh(file_handle);
+        return Status::OK;
+      }     
+  }
+
+  Status grpc_read(ServerContext* context, const ReadReq* read_req, 
+    Buffer* buffer)override{
+      char server_path[512] ={0};
+      translatePath(read_req->path().c_str(),server_path);
+      printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,read_req->path().c_str(), server_path);
+
+      int file_handle= open (server_path ,O_RDONLY);
+      if (file_handle ==0){      
+        printf("failed to open %s\n",server_path);
+        return Status::CANCELLED;
+      }
+
+      char * buf = (char*)malloc(read_req->size());
+      int nbytes;
+      //didn't use the file handle passed by read_req, because no example do this.
+      nbytes = pread(file_handle,buf,read_req->size(), read_req->offset());
+      if ( nbytes==-1){
+       perror(strerror(errno));
+       printf("server cannot seek at: %d\n", read_req->offset());
+      }
+    
+      printf("server :no of bytes read :%d \n",nbytes);
+
+      string buf_string(buf);
+      std::cout<<"*buf="<<*buf<<std::endl;
+      std::cout<<"buf_string="<<buf_string<<std::endl;
+      buffer->set_buffer(buf_string);
+      buffer->set_nbytes(nbytes);
+
+      if (file_handle >0)
+        close(file_handle);
+      
+      free(buf);
+      return Status::OK;
+   }
 
 };
 

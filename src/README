@@ -2,9 +2,28 @@ Assume you have installed fuse and grpc on your local machine.
 
 On your machine:
 make
-sudo mkdir /mnt/hello
+sudo mkdir /mnt
 ./greeter_server
 
 On a different terminal:
-sudo ./greeter_client -o allow_other /mnt/hello
-cat /mnt/hello/hello
+sudo ./greeter_client -o allow_other /home/liuyang/Downloads/mnt
+cat /home/liuyang/Downloads/mnt/hello
+
+To unmount a mountpoint: 
+sudo fusermount -u /home/liuyang/Downloads/mnt
+
+To delete the mount folder:
+sudo rm -r /mnt
+
+//--------------------use gdb---------------------------
+//------in window #1, do:
+./greeter_server
+
+//------in window #2, do:
+gdb greeter_client
+(gdb) run -s -d /home/liuyang/Downloads/mnt
+
+//------in window #3, do:
+ls /home/liuyang/Downloads/mnt
+#other trial commands
+fusermount -u /home/liuyang/Downloads/mnt

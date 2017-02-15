@@ -42,8 +42,14 @@ service Greeter {
   rpc SayHello (HelloRequest) returns (HelloReply) {}
   rpc xmp_mkdir (Request) returns (Empty) {}
   rpc grpc_getattr (Path) returns (Stbuf) {}
+<<<<<<< HEAD
   rpc grpc_readdir (Path) returns (stream Directory) {}
   rpc grpc_write (WriteRequest) returns (WriteBytes) {}
+=======
+  rpc grpc_readdir (Path) returns (stream Directory) {} 
+  rpc grpc_open (PathFlags) returns (FileHandle) {} 
+  rpc grpc_read (ReadReq) returns (Buffer) {}
+>>>>>>> 4e842f2417d295cdc311319e916fbb7430ce9fd1
 }
 
 // The request message containing the user's name.
@@ -81,6 +87,7 @@ message Empty {
   
 }
 
+<<<<<<< HEAD
 message WriteBytes {
   int32 nbytes = 1;
 }
@@ -93,4 +100,26 @@ message WriteRequest {
   int32 fh = 5;
 }
 
+=======
+message PathFlags{
+  string path = 1;
+  int32 flags = 2;
+}
+
+message FileHandle{
+  int32 fh = 1;
+}
+
+message ReadReq{
+  string path = 1;
+  int32 size = 2;
+  int32 offset = 3;
+  int32 fh = 4;
+}
+
+message Buffer{
+  bytes buffer = 1;
+  int32 nbytes = 2;
+}
+>>>>>>> 4e842f2417d295cdc311319e916fbb7430ce9fd1
 
