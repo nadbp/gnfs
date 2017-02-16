@@ -51,6 +51,8 @@ service Greeter {
   rpc grpc_unlink (Path) returns (Errno) {}
   rpc grpc_rename (RenameReq) returns (Errno) {}
   rpc grpc_rmdir (Path) returns (Errno) {}
+  rpc grpc_release (ReleaseReq) returns (Errno) {}
+  rpc grpc_create (CreateReq) returns (Errno) {}
 }
 
 // The request message containing the user's name.
@@ -61,6 +63,12 @@ message HelloRequest {
 // The response message containing the greetings
 message HelloReply {
   string message = 1;
+}
+
+message CreateReq {
+    string path = 1;
+    int32 mode = 2;
+    int32 flag = 3;
 }
 
 message RenameReq {
@@ -132,6 +140,11 @@ message ReadReq{
 message Buffer{
   bytes buffer = 1;
   int32 nbytes = 2;
+}
+
+message ReleaseReq{
+    string path = 1;
+    int32 fh = 2;
 }
 
 message Empty{

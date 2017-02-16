@@ -37,7 +37,8 @@ using helloworld::ReadReq;
 using helloworld::Buffer;
 using helloworld::FlushReq;
 using helloworld::RenameReq;
-
+using helloworld::ReleaseReq;
+using helloworld::CreateReq;
 class GreeterClient {
  public:
   GreeterClient(std::shared_ptr<Channel> channel)
@@ -68,6 +69,18 @@ class GreeterClient {
                 << std::endl;
       return "RPC failed";
     }
+  }
+  
+  int grpc_create(const char* path, mode_t mode, unsigned int flag) {
+    ClientContext context;
+    CreateReq req;
+    req.set_path(path);
+    req.set_mode(mode);
+    req.set_flag(flag);
+    Errno err;
+
+    Status s = stub_->grpc_create(&context, req, &err);
+    return err.err();
   }
 
 int grpc_mkdir(const char *path, mode_t mode)
@@ -246,6 +259,17 @@ int grpc_rmdir(const char *path)
     return err.err();
 }
 
+int grpc_release(const char *path, struct fuse_file_info *fi) 
+{
+    ClientContext context;
+    ReleaseReq req;
+    req.set_path(path);
+    req.set_fh(fi->fh);
+    Errno err;
+    Status s = stub_->grpc_release(&context, req, &err);
+    return err.err();
+}
+
  private:
   std::unique_ptr<Greeter::Stub> stub_;
 };
@@ -341,6 +365,15 @@ static int grpc_rmdir(const char *path)
     return options.greeter->grpc_rmdir(path);
 }
 
+static int grpc_release(const char *path, struct fuse_file_info *fi) 
+{
+    return options.greeter->grpc_release(path, fi);
+}
+
+static int grpc_create(const char* path, mode_t mode, struct fuse_file_info *fi) {
+    return options.greeter->grpc_create(path, mode, fi->flags);
+}
+
 static struct hello_operations : fuse_operations {
 	hello_operations() {
 		init    = hello_init;
@@ -353,7 +386,10 @@ static struct hello_operations : fuse_operations {
         write   = grpc_write;
         flush   = grpc_flush;
         rename  = grpc_rename;
-        rmdir  =grpc_rmdir;
+        rmdir   = grpc_rmdir;
+        release = grpc_release;
+        create  = grpc_create;
+
     }
 } hello_oper_init;
 

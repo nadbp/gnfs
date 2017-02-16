@@ -41,6 +41,8 @@ using helloworld::Buffer;
 using helloworld::Empty;
 using helloworld::FlushReq;
 using helloworld::RenameReq;
+using helloworld::ReleaseReq;
+using helloworld::CreateReq;
 
 void translatePath(const char* client_path,char * server_path){
  strcat(server_path,"./798");
@@ -105,16 +107,32 @@ class GreeterServiceImpl final : public Greeter::Service {
    return Status::OK;
  }
 
+  Status grpc_create(ServerContext* context, const CreateReq* request, Errno* err) override {
+    char server_path[512] ={0};
+    translatePath(request->path().c_str(),server_path);
+    printf("Server before mkdir: %s, Path : %s, Translated path: %s\n",__FUNCTION__,request->path().c_str(), server_path);
+    int res=open(server_path, request->flag(), request->mode());
+    printf("Server after mkdir: %s, Path : %s, Translated path: %s\n",__FUNCTION__,request->path().c_str(), server_path);
+
+    if(res < 0){
+     perror(strerror(errno));
+     err->set_err(-errno);
+   }else
+   err->set_err(0);
+   return Status::OK;
+    
+  }
+
 Status grpc_flush(ServerContext* context, const FlushReq* req, Errno* err) override {
-    int fd, nbytes;
+   // int fd, nbytes;
     char server_path[512] = {0};
     translatePath(req->path().c_str(), server_path);
     printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,req->path().c_str(), server_path);
-    fd = req->fh();
+    //fd = req->fh();
     //printf("file handle: %d\n", req->fh());
     //fd = open(server_path, O_WRONLY);                
     //printf("file handle open: %d\n", fd);
-    if(fd == 0) {
+   /* if(fd == 0) {
         printf("fail to get file %s\n", server_path);
         err->set_err(-errno);
         return Status::CANCELLED;
@@ -130,7 +148,7 @@ Status grpc_flush(ServerContext* context, const FlushReq* req, Errno* err) overr
 
         close(fd);
     
-    }
+    }*/
 
     err->set_err(0);
 
@@ -199,7 +217,7 @@ Status grpc_open(ServerContext* context, const PathFlags* path_flags,
   }     
 }
 
-  Status grpc_unlink(ServerContext context, const Path* path, Errno * err) {
+  Status grpc_unlink(ServerContext* context, const Path* path, Errno * err) override {
       int res;
       char server_path[512] ={0};
       translatePath(path->path().c_str(),server_path);
@@ -215,6 +233,27 @@ Status grpc_open(ServerContext* context, const PathFlags* path_flags,
       return Status::OK;
     
   }
+  
+  Status grpc_release(ServerContext* context, const ReleaseReq* req, Errno* err) override {
+      char server_path[512] ={0};
+      translatePath(req->path().c_str(),server_path);
+      printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,req->path().c_str(), server_path);
+      
+      if(req->fh()) {
+          if(fsync(req->fh()) < 0) {
+            perror(strerror(errno));
+            err->set_err(-errno);
+          }
+          if(close(req->fh()) == -1) {
+            perror(strerror(errno));
+            err->set_err(-errno);
+          }
+      }
+
+      err->set_err(0);
+      return Status::OK;
+  }
+    
 
  
  Status grpc_read(ServerContext* context, const ReadReq* read_req, 
