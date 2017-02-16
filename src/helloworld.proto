@@ -49,6 +49,7 @@ service Greeter {
   rpc grpc_read (ReadReq) returns (Buffer) {}
   rpc grpc_flush (FlushReq) returns (Empty) {}
   rpc grpc_rename (RenameReq) returns (Errno) {}
+  rpc grpc_rmdir (Path) returns (Errno) {}
 }
 
 // The request message containing the user's name.
