@@ -35,7 +35,6 @@ using helloworld::PathFlags;
 using helloworld::FileHandle;
 using helloworld::ReadReq;
 using helloworld::Buffer;
-using helloworld::Empty;
 using helloworld::FlushReq;
 using helloworld::RenameReq;
 
@@ -115,6 +114,18 @@ Status status = stub_->grpc_getattr(&context, pathName, &stbuf);
     	//return -2;
 }
 
+int grpc_unlink(const char *path) {
+    ClientContext context;
+    Path pathname;
+    pathname.set_path(path);
+    Errno err;
+
+    Status s = stub_->grpc_unlink(&context, pathname, &err);
+    //if(status.ok()){
+        return err.err();
+    //}
+}
+
 int grpc_readdir(const char *client_path, void *buf, fuse_fill_dir_t filler)
 {
   ClientContext context;
@@ -170,14 +181,14 @@ int grpc_flush(const char* path, struct fuse_file_info *fi)
     FlushReq req;
     req.set_path(path);
     req.set_fh(fi->fh);
-    Empty empty;
+    Errno err;
 
-    Status s = stub_->grpc_flush(&context, req, &empty);
+    Status s = stub_->grpc_flush(&context, req, &err);
     if(s.ok()) {
         std::cout << "flush rpc succeeded." << std::endl;
     } else {
         std::cout << "flush rpc failed." << std::endl;
-        return -1;
+        return err.err();
     }
     return 0;
 }
@@ -311,6 +322,10 @@ static int grpc_write(const char* path, const char* buffer, size_t size, off_t o
     return options.greeter->grpc_write(path, buffer, size, offset, fi);
 }
 
+static int grpc_unlink(const char* path) {
+    return options.greeter->grpc_unlink(path);
+}
+
 static int grpc_flush(const char* path, struct fuse_file_info *fi) 
 {
     return options.greeter->grpc_flush(path, fi);
@@ -334,6 +349,7 @@ static struct hello_operations : fuse_operations {
 		open	= grpc_open; //hello_open;
 		read	= grpc_read; //hello_read;
         mkdir	= grpc_mkdir;
+        unlink  = grpc_unlink;
         write   = grpc_write;
         flush   = grpc_flush;
         rename  = grpc_rename;

@@ -47,7 +47,8 @@ service Greeter {
  // rpc grpc_readdir (Path) returns (stream Directory) {} 
   rpc grpc_open (PathFlags) returns (FileHandle) {} 
   rpc grpc_read (ReadReq) returns (Buffer) {}
-  rpc grpc_flush (FlushReq) returns (Empty) {}
+  rpc grpc_flush (FlushReq) returns (Errno) {}
+  rpc grpc_unlink (Path) returns (Errno) {}
   rpc grpc_rename (RenameReq) returns (Errno) {}
   rpc grpc_rmdir (Path) returns (Errno) {}
 }
@@ -135,3 +136,4 @@ message Buffer{
 
 message Empty{
 }
+
