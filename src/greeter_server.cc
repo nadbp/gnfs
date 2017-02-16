@@ -42,19 +42,19 @@ using helloworld::Empty;
 using helloworld::FlushReq;
 using helloworld::RenameReq;
 
- void translatePath(const char* client_path,char * server_path){
-   strcat(server_path,"./798");
-   strcat(server_path+4,client_path);
-   server_path[strlen(server_path)] = '\0';
+void translatePath(const char* client_path,char * server_path){
+ strcat(server_path,"./798");
+ strcat(server_path+4,client_path);
+ server_path[strlen(server_path)] = '\0';
 }
 
 // Logic and data behind the server's behavior.
 class GreeterServiceImpl final : public Greeter::Service {
 
- 
+
 
   Status SayHello(ServerContext* context, const HelloRequest* request,
-                  HelloReply* reply) override {
+    HelloReply* reply) override {
     std::string prefix("Hello ");
     std::cout<<request->name()<<std::endl;
     reply->set_message(prefix + request->name());
@@ -76,13 +76,13 @@ class GreeterServiceImpl final : public Greeter::Service {
     
     nbytes = pwrite(fd, req->buffer().c_str(), req->size(), req->offset());
     if(nbytes < 0) {
-        printf("File system write failed zero data write\n");
-        noBytes->set_nbytes(nbytes);
-        return Status::CANCELLED;
+      printf("File system write failed zero data write\n");
+      noBytes->set_nbytes(nbytes);
+      return Status::CANCELLED;
     } 
 
     if(fd > 0) {
-        close(fd);
+      close(fd);
     }
 
     noBytes->set_nbytes(nbytes);
@@ -90,7 +90,7 @@ class GreeterServiceImpl final : public Greeter::Service {
   }
 
   Status grpc_mkdir(ServerContext* context, const Request* request,
-                  Errno* err) override {
+    Errno* err) override {
     char server_path[512] ={0};
     translatePath(request->path().c_str(),server_path);
     printf("Server before mkdir: %s, Path : %s, Translated path: %s\n",__FUNCTION__,request->path().c_str(), server_path);
@@ -98,14 +98,14 @@ class GreeterServiceImpl final : public Greeter::Service {
     printf("Server after mkdir: %s, Path : %s, Translated path: %s\n",__FUNCTION__,request->path().c_str(), server_path);
 
     if(res == -1){
-       perror(strerror(errno));
-       err->set_err(-errno);
-       return Status::CANCELLED;
-    }
-    return Status::OK;
-  }
+     perror(strerror(errno));
+     err->set_err(-errno);
+   }else
+   err->set_err(0);
+   return Status::OK;
+ }
 
-  Status grpc_flush(ServerContext* context, const FlushReq* req, Errno* err) override {
+Status grpc_flush(ServerContext* context, const FlushReq* req, Errno* err) override {
     int fd, nbytes;
     char server_path[512] = {0};
     translatePath(req->path().c_str(), server_path);
@@ -137,71 +137,67 @@ class GreeterServiceImpl final : public Greeter::Service {
     return Status::OK;
   }
 
-  Status grpc_getattr(ServerContext* context, const Path* client_path,
-                  Stbuf* stbuf) override{
-    
-    char server_path[512] ={0};
-    translatePath(client_path->path().c_str(),server_path);
-    printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,client_path->path().c_str(), server_path);
+Status grpc_getattr(ServerContext* context, const Path* client_path,
+  Stbuf* stbuf) override{
 
-    struct stat stemp = {0};
-    int res=lstat(server_path,&stemp);
-    stbuf->set_stmode(stemp.st_mode);
-    stbuf->set_stnlink(stemp.st_nlink);
-    stbuf->set_stsize(stemp.st_size);
+  char server_path[512] ={0};
+  translatePath(client_path->path().c_str(),server_path);
+  printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,client_path->path().c_str(), server_path);
+
+  struct stat stemp = {0};
+  int res=lstat(server_path,&stemp);
+  stbuf->set_stmode(stemp.st_mode);
+  stbuf->set_stnlink(stemp.st_nlink);
+  stbuf->set_stsize(stemp.st_size);
   if(res==-1){
     perror(strerror(errno));
-    stbuf->set_err(errno);
-    printf("errno: %d\n", stbuf->err());
+    stbuf->set_err(-errno);
+    printf("stbuf->err(): %d\n", stbuf->err());
     std::cout<<"-errno="<<-errno<<std::endl;
+  }else
+  stbuf->set_err(0);
+  return Status::OK;
+}
+
+Status grpc_readdir(ServerContext* context, const Path* client_path, 
+  ServerWriter<Directory>* writer)override{
+  char server_path[512] ={0};
+  translatePath(client_path->path().c_str(),server_path);
+
+  Directory directory;
+  DIR *dp;
+  struct dirent *de;
+  dp = opendir(server_path);
+  if (dp == NULL){
+    perror(strerror(errno));
+    directory.set_err(-errno);
+    return Status::CANCELLED;
+  }
+  while ((de = readdir(dp)) != NULL){
+    directory.set_dname(de->d_name);
+    directory.set_dino(de->d_ino);
+    directory.set_dtype(de->d_type);
+    writer->Write(directory);
+  }
+  directory.set_err(0);
+  return Status::OK;
+}
+
+Status grpc_open(ServerContext* context, const PathFlags* path_flags, 
+  FileHandle* fh)override {
+  char server_path[512] ={0};
+  translatePath(path_flags->path().c_str(),server_path);
+  printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,path_flags->path().c_str(), server_path);
+
+  int file_handle= open (server_path ,path_flags->flags());
+  if(file_handle == -1){
+    perror(strerror(errno));
     return Status::CANCELLED;
   }else{
-    stbuf->set_err(0);
+    fh->set_fh(file_handle);
     return Status::OK;
-  }  
-    
-  }
-
-  Status grpc_readdir(ServerContext* context, const Path* client_path, 
-    ServerWriter<Directory>* writer)override{
-      char server_path[512] ={0};
-      translatePath(client_path->path().c_str(),server_path);
-      
-      Directory directory;
-      DIR *dp;
-      struct dirent *de;
-      dp = opendir(server_path);
-      if (dp == NULL){
-        perror(strerror(errno));
-        directory.set_err(-errno);
-        return Status::CANCELLED;
-      }
-      while ((de = readdir(dp)) != NULL){
-        directory.set_dname(de->d_name);
-        directory.set_dino(de->d_ino);
-        directory.set_dtype(de->d_type);
-        writer->Write(directory);
-      }
-      directory.set_err(0);
-      return Status::OK;
-  }
-
-  Status grpc_open(ServerContext* context, const PathFlags* path_flags, 
-    FileHandle* fh)override {
-      char server_path[512] ={0};
-      translatePath(path_flags->path().c_str(),server_path);
-      printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,path_flags->path().c_str(), server_path);
-      
-      int file_handle= open (server_path ,path_flags->flags());
-      if(file_handle == -1){
-        perror(strerror(errno));
-        return Status::CANCELLED;
-      }else{
-        fh->set_fh(file_handle);
-        return Status::OK;
-      }     
-  }
-
+  }     
+}
 
   Status grpc_unlink(ServerContext context, const Path* path, Errno * err) {
       int res;
@@ -220,7 +216,8 @@ class GreeterServiceImpl final : public Greeter::Service {
     
   }
 
-  Status grpc_read(ServerContext* context, const ReadReq* read_req, 
+ 
+ Status grpc_read(ServerContext* context, const ReadReq* read_req, 
     Buffer* buffer)override{
       char server_path[512] ={0};
       translatePath(read_req->path().c_str(),server_path);
@@ -254,26 +251,42 @@ class GreeterServiceImpl final : public Greeter::Service {
       
       free(buf);
       return Status::OK;
-   }
-    Status grpc_rename(ServerContext* context, const RenameReq* rename_req, 
-    Errno* err)override {
-      char server_from_path[512] ={0};
-      translatePath(rename_req->from().c_str(),server_from_path);
-      printf("Server : -From %s, Path : %s, Translated path: %s\n",__FUNCTION__,rename_req->from().c_str(), server_from_path);
-      
-      char server_to_path[512] ={0};
-      translatePath(rename_req->to().c_str(),server_to_path);
-      printf("Server : -To %s, Path : %s, Translated path: %s\n",__FUNCTION__,rename_req->to().c_str(), server_to_path);
-      
-      if (rename_req->flags())
-        err->set_err(-EINVAL);
+}
 
-      int res = rename(server_from_path, server_to_path);
-      if(res == -1)
-        err->set_err(-errno);
-      err->set_err(0);
-      return Status::OK;    
-  }
+Status grpc_rename(ServerContext* context, const RenameReq* rename_req, 
+  Errno* err)override {
+  char server_from_path[512] ={0};
+  translatePath(rename_req->from().c_str(),server_from_path);
+  printf("Server : -From %s, Path : %s, Translated path: %s\n",__FUNCTION__,rename_req->from().c_str(), server_from_path);
+
+  char server_to_path[512] ={0};
+  translatePath(rename_req->to().c_str(),server_to_path);
+  printf("Server : -To %s, Path : %s, Translated path: %s\n",__FUNCTION__,rename_req->to().c_str(), server_to_path);
+
+  if (rename_req->flags())
+    err->set_err(-EINVAL);
+
+  int res = rename(server_from_path, server_to_path);
+  if(res == -1)
+    err->set_err(-errno);
+  else
+    err->set_err(0);
+  return Status::OK;    
+}
+
+Status grpc_rmdir(ServerContext* context, const Path* client_path, 
+  Errno* err)override {
+  char server_path[512] ={0};
+  translatePath(client_path->path().c_str(),server_path);
+  printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,client_path->path().c_str(), server_path);
+
+  int res = rmdir(server_path);
+  if(res == -1)
+    err->set_err(-errno);
+  else
+    err->set_err(0);
+  return Status::OK;    
+}
 
 
 };

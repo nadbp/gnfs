@@ -109,15 +109,9 @@ Status status = stub_->grpc_getattr(&context, pathName, &stbuf);
 	std::cout << "size: *** : " << stbuf.stsize() << std::endl;
 	std::cout<<"stbuf.err()="<<stbuf.err()<<std::endl;
 
-    if (status.ok()) {
-      return 0;
-    } else {
-      // std::cout << status.error_code() << ": " << status.error_message()
-      //           << std::endl;	
     	std::cout<<"stbuf.err() here="<<stbuf.err()<<std::endl;
-     // return stbuf.err();
-    	return -2;
-    }
+      return stbuf.err();
+    	//return -2;
 }
 
 int grpc_unlink(const char *path) {
@@ -241,6 +235,17 @@ int grpc_rename(const char *from, const char *to, unsigned int flags)
   	return err.err();
 }
 
+int grpc_rmdir(const char *path)
+{
+    ClientContext context;
+    Path client_path;
+    client_path.set_path(path);
+    Errno err;
+    Status status = stub_->grpc_rmdir(&context, client_path, &err);
+    std::cout<<"rmdir: err.err()="<<err.err()<<std::endl;
+    return err.err();
+}
+
  private:
   std::unique_ptr<Greeter::Stub> stub_;
 };
@@ -331,6 +336,11 @@ static int grpc_rename(const char *from, const char *to, unsigned int flags)
     return options.greeter->grpc_rename(from,to, flags);
 }
 
+static int grpc_rmdir(const char *path) 
+{
+    return options.greeter->grpc_rmdir(path);
+}
+
 static struct hello_operations : fuse_operations {
 	hello_operations() {
 		init    = hello_init;
@@ -343,6 +353,7 @@ static struct hello_operations : fuse_operations {
         write   = grpc_write;
         flush   = grpc_flush;
         rename  = grpc_rename;
+        rmdir  =grpc_rmdir;
     }
 } hello_oper_init;
 
