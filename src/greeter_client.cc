@@ -36,6 +36,7 @@ using helloworld::FileHandle;
 using helloworld::ReadReq;
 using helloworld::Buffer;
 using helloworld::FlushReq;
+using helloworld::RenameReq;
 
 class GreeterClient {
  public:
@@ -227,6 +228,19 @@ int grpc_read(const char *client_path, char *buf, size_t size, off_t offset, int
   	std::cout<<"*buf="<<*buf<<std::endl;
   	return buffer.nbytes();
 }
+
+int grpc_rename(const char *from, const char *to, unsigned int flags)
+{
+	ClientContext context;
+  	RenameReq rename_req;
+  	rename_req.set_from(from);
+  	rename_req.set_to(to);
+  	rename_req.set_flags(flags);
+  	Errno err;
+  	Status status = stub_->grpc_rename(&context, rename_req, &err);
+  	return err.err();
+}
+
  private:
   std::unique_ptr<Greeter::Stub> stub_;
 };
@@ -312,6 +326,10 @@ static int grpc_flush(const char* path, struct fuse_file_info *fi)
     return options.greeter->grpc_flush(path, fi);
 }
 
+static int grpc_rename(const char *from, const char *to, unsigned int flags) 
+{
+    return options.greeter->grpc_rename(from,to, flags);
+}
 
 static struct hello_operations : fuse_operations {
 	hello_operations() {
@@ -324,6 +342,7 @@ static struct hello_operations : fuse_operations {
         unlink  = grpc_unlink;
         write   = grpc_write;
         flush   = grpc_flush;
+        rename  = grpc_rename;
     }
 } hello_oper_init;
 
