@@ -11,6 +11,8 @@
 #include <errno.h>
 #include <unistd.h>
 #include <utime.h>
+#include <thread> //this_thread::sleep_for
+#include <chrono> //chrono::seconds
 
 #ifdef BAZEL_BUILD
 #include "examples/protos/helloworld.grpc.pb.h"
@@ -45,8 +47,10 @@ using helloworld::ReleaseReq;
 using helloworld::CreateReq;
 using helloworld::UtimeReq;
 
+static const char* server_root_path;
+
 void translatePath(const char* client_path,char * server_path){
- strcat(server_path,"./798");
+ strcat(server_path,server_root_path);
  strcat(server_path+4,client_path);
  server_path[strlen(server_path)] = '\0';
 }
@@ -108,27 +112,27 @@ class GreeterServiceImpl final : public Greeter::Service {
    return Status::OK;
  }
 
-  Status grpc_create(ServerContext* context, const CreateReq* request, Errno* err) override {
-    char server_path[512] ={0};
-    translatePath(request->path().c_str(),server_path);
-    printf("Server before mkdir: %s, Path : %s, Translated path: %s\n",__FUNCTION__,request->path().c_str(), server_path);
-    int res=open(server_path, request->flag(), request->mode());
-    printf("Server after mkdir: %s, Path : %s, Translated path: %s\n",__FUNCTION__,request->path().c_str(), server_path);
+ Status grpc_create(ServerContext* context, const CreateReq* request, Errno* err) override {
+  char server_path[512] ={0};
+  translatePath(request->path().c_str(),server_path);
+  printf("Server before mkdir: %s, Path : %s, Translated path: %s\n",__FUNCTION__,request->path().c_str(), server_path);
+  int res=open(server_path, request->flag(), request->mode());
+  printf("Server after mkdir: %s, Path : %s, Translated path: %s\n",__FUNCTION__,request->path().c_str(), server_path);
 
-    if(res < 0){
-     perror(strerror(errno));
-     err->set_err(-errno);
-   }else
-   err->set_err(0);
-   return Status::OK;
-    
-  }
+  if(res < 0){
+   perror(strerror(errno));
+   err->set_err(-errno);
+ }else
+ err->set_err(0);
+ return Status::OK;
+
+}
 
 Status grpc_flush(ServerContext* context, const FlushReq* req, Errno* err) override {
    // int fd, nbytes;
-    char server_path[512] = {0};
-    translatePath(req->path().c_str(), server_path);
-    printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,req->path().c_str(), server_path);
+  char server_path[512] = {0};
+  translatePath(req->path().c_str(), server_path);
+  printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,req->path().c_str(), server_path);
     //fd = req->fh();
     //printf("file handle: %d\n", req->fh());
     //fd = open(server_path, O_WRONLY);                
@@ -151,10 +155,10 @@ Status grpc_flush(ServerContext* context, const FlushReq* req, Errno* err) overr
     
     }*/
 
-    err->set_err(0);
+  err->set_err(0);
 
-    return Status::OK;
-  }
+  return Status::OK;
+}
 
 Status grpc_getattr(ServerContext* context, const Path* client_path,
   Stbuf* stbuf) override{
@@ -218,79 +222,84 @@ Status grpc_open(ServerContext* context, const PathFlags* path_flags,
   }     
 }
 
-  Status grpc_unlink(ServerContext* context, const Path* path, Errno * err) override {
-      int res;
-      char server_path[512] ={0};
-      translatePath(path->path().c_str(),server_path);
-      printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,path->path().c_str(), server_path);
-        
-      res = unlink(server_path);
-      if(res == -1){
-        err->set_err(-errno);
-      } else {
-          err->set_err(0);
-      }
+Status grpc_unlink(ServerContext* context, const Path* path, Errno * err) override {
+  int res;
+  char server_path[512] ={0};
+  translatePath(path->path().c_str(),server_path);
+  printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,path->path().c_str(), server_path);
 
-      return Status::OK;
-    
+  res = unlink(server_path);
+  if(res == -1){
+    err->set_err(-errno);
+  } else {
+    err->set_err(0);
   }
-  
-  Status grpc_release(ServerContext* context, const ReleaseReq* req, Errno* err) override {
-      char server_path[512] ={0};
-      translatePath(req->path().c_str(),server_path);
-      printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,req->path().c_str(), server_path);
-      
-      if(req->fh()) {
-          if(fsync(req->fh()) < 0) {
-            perror(strerror(errno));
-            err->set_err(-errno);
-          }
-          if(close(req->fh()) == -1) {
-            perror(strerror(errno));
-            err->set_err(-errno);
-          }
-      }
 
-      err->set_err(0);
-      return Status::OK;
+  return Status::OK;
+
+}
+
+Status grpc_release(ServerContext* context, const ReleaseReq* req, Errno* err) override {
+  char server_path[512] ={0};
+  translatePath(req->path().c_str(),server_path);
+  printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,req->path().c_str(), server_path);
+
+  if(req->fh()) {
+    if(fsync(req->fh()) < 0) {
+      perror(strerror(errno));
+      err->set_err(-errno);
+    }
+    if(close(req->fh()) == -1) {
+      perror(strerror(errno));
+      err->set_err(-errno);
+    }
   }
-    
 
- 
- Status grpc_read(ServerContext* context, const ReadReq* read_req, 
-    Buffer* buffer)override{
-      char server_path[512] ={0};
-      translatePath(read_req->path().c_str(),server_path);
-      printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,read_req->path().c_str(), server_path);
+  err->set_err(0);
+  return Status::OK;
+}
 
-      int file_handle= open (server_path ,O_RDONLY);
-      if (file_handle ==0){      
-        printf("failed to open %s\n",server_path);
-        return Status::CANCELLED;
-      }
 
-      char * buf = (char*)malloc(read_req->size());
-      int nbytes;
+
+Status grpc_read(ServerContext* context, const ReadReq* read_req, 
+  Buffer* buffer)override{
+  char server_path[512] ={0};
+  translatePath(read_req->path().c_str(),server_path);
+  printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,read_req->path().c_str(), server_path);
+
+  // //let server sleep for 5s, to simulate crash
+  // std::cout<<"===================sleeping starts============="<<std::endl;
+  // std::this_thread::sleep_for(std::chrono::seconds(5));
+  // std::cout<<"===================sleeping ends============="<<std::endl;
+
+  int file_handle= open (server_path ,O_RDONLY);
+  if (file_handle ==0){      
+    printf("failed to open %s\n",server_path);
+    return Status::CANCELLED;
+  }
+
+  char * buf = (char*)malloc(read_req->size());
+  int nbytes;
       //didn't use the file handle passed by read_req, because no example do this.
-      nbytes = pread(file_handle,buf,read_req->size(), read_req->offset());
-      if ( nbytes==-1){
-       perror(strerror(errno));
-       printf("server cannot seek at: %d\n", read_req->offset());
-      }
-    
-      printf("server :no of bytes read :%d \n",nbytes);
+  nbytes = pread(file_handle,buf,read_req->size(), read_req->offset());
+  if ( nbytes==-1){
+   perror(strerror(errno));
+   printf("server cannot seek at: %d\n", read_req->offset());
+ }
 
-      string buf_string(buf);
-      std::cout<<"*buf="<<*buf<<std::endl;
-      std::cout<<"buf_string="<<buf_string<<std::endl;
-      buffer->set_buffer(buf_string);
-      buffer->set_nbytes(nbytes);
+ printf("server :no of bytes read :%d \n",nbytes);
 
-      if (file_handle >0)
-        close(file_handle);
-      
-      free(buf);
-      return Status::OK;
+ string buf_string(buf);
+ std::cout<<"*buf="<<*buf<<std::endl;
+ std::cout<<"buf_string="<<buf_string<<std::endl;
+ buffer->set_buffer(buf_string);
+ buffer->set_nbytes(nbytes);
+
+ if (file_handle >0)
+  close(file_handle);
+
+free(buf);
+return Status::OK;
 }
 
 Status grpc_rename(ServerContext* context, const RenameReq* rename_req, 
@@ -330,27 +339,27 @@ Status grpc_rmdir(ServerContext* context, const Path* client_path,
 
 Status grpc_utimens(ServerContext* context, const UtimeReq* req, Errno* err) override {
 //    struct timespec time[2];
-    struct utimbuf buf;
-    char server_path[512] ={0};
-    translatePath(req->path().c_str(),server_path);
-    printf("server : %s, path : %s, translated path: %s\n",__FUNCTION__,req->path().c_str(), server_path);
-    
+  struct utimbuf buf;
+  char server_path[512] ={0};
+  translatePath(req->path().c_str(),server_path);
+  printf("server : %s, path : %s, translated path: %s\n",__FUNCTION__,req->path().c_str(), server_path);
+
   //  struct timespec at = {req->at()};
   //  struct timespec mt = {req->mt()};
 
   //  time[0] = at;
   //  time[1] = mt;
   //
-    buf.actime = req->at();
-    buf.modtime = req->mt();
+  buf.actime = req->at();
+  buf.modtime = req->mt();
 
-    if(utime(server_path, &buf) == -1) {
-        err->set_err(-errno);
-    } else {
-        err->set_err(0);
-    }
+  if(utime(server_path, &buf) == -1) {
+    err->set_err(-errno);
+  } else {
+    err->set_err(0);
+  }
 
-    return Status::OK;
+  return Status::OK;
 
   
 }
@@ -378,6 +387,13 @@ void RunServer() {
 }
 
 int main(int argc, char** argv) {
+  if (argc!=2){
+    std::cout<<"usage: "<<argv[0]<<" server_root_path"<<std::endl;
+    return 1;
+  }
+
+  server_root_path=argv[1];
+  std::cout<<"server_root_path="<<server_root_path<<std::endl;
   RunServer();
 
   return 0;
