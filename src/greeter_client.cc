@@ -105,11 +105,11 @@ Status status = stub_->grpc_getattr(&context, pathName, &stbuf);
     statbuf->st_mode = stbuf.stmode();
 	statbuf->st_nlink = stbuf.stnlink();
 	statbuf->st_size = stbuf.stsize();
-	std::cout << "link: " << stbuf.stnlink() << std::endl;
-	std::cout << "size: *** : " << stbuf.stsize() << std::endl;
-	std::cout<<"stbuf.err()="<<stbuf.err()<<std::endl;
+	// std::cout << "link: " << stbuf.stnlink() << std::endl;
+	// std::cout << "size: *** : " << stbuf.stsize() << std::endl;
+	// std::cout<<"stbuf.err()="<<stbuf.err()<<std::endl;
 
-    	std::cout<<"stbuf.err() here="<<stbuf.err()<<std::endl;
+    	std::cout<<"stbuf.err()="<<stbuf.err()<<std::endl;
       return stbuf.err();
     	//return -2;
 }
@@ -121,6 +121,7 @@ int grpc_unlink(const char *path) {
     Errno err;
 
     Status s = stub_->grpc_unlink(&context, pathname, &err);
+    std::cout<<"unlink err()="<<err.err()<<std::endl;
     //if(status.ok()){
         return err.err();
     //}
