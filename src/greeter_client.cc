@@ -39,6 +39,8 @@ using helloworld::FlushReq;
 using helloworld::RenameReq;
 using helloworld::ReleaseReq;
 using helloworld::CreateReq;
+using helloworld::UtimeReq;
+
 class GreeterClient {
  public:
   GreeterClient(std::shared_ptr<Channel> channel)
@@ -81,6 +83,19 @@ class GreeterClient {
 
     Status s = stub_->grpc_create(&context, req, &err);
     return err.err();
+  }
+
+  int grpc_utimens(const char* path, const struct timespec time[2]) 
+  {
+      ClientContext context;
+      UtimeReq req;
+      req.set_path(path);
+      req.set_at(time[0].tv_sec);
+      req.set_mt(time[0].tv_sec);
+      Errno err;
+
+      Status s = stub_->grpc_utimens(&context, req, &err);
+      return err.err();
   }
 
 int grpc_mkdir(const char *path, mode_t mode)
@@ -374,6 +389,10 @@ static int grpc_create(const char* path, mode_t mode, struct fuse_file_info *fi)
     return options.greeter->grpc_create(path, mode, fi->flags);
 }
 
+static int grpc_utimens(const char* path, const struct timespec time[2], struct fuse_file_info *fi) {
+    return options.greeter->grpc_utimens(path, time);
+}
+
 static struct hello_operations : fuse_operations {
 	hello_operations() {
 		init    = hello_init;
@@ -389,7 +408,7 @@ static struct hello_operations : fuse_operations {
         rmdir   = grpc_rmdir;
         release = grpc_release;
         create  = grpc_create;
-
+        utimens   = grpc_utimens;
     }
 } hello_oper_init;
 

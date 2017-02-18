@@ -53,6 +53,7 @@ service Greeter {
   rpc grpc_rmdir (Path) returns (Errno) {}
   rpc grpc_release (ReleaseReq) returns (Errno) {}
   rpc grpc_create (CreateReq) returns (Errno) {}
+  rpc grpc_utimens (UtimeReq) returns (Errno) {}
 }
 
 // The request message containing the user's name.
@@ -145,6 +146,12 @@ message Buffer{
 message ReleaseReq{
     string path = 1;
     int32 fh = 2;
+}
+
+message UtimeReq {
+    string path = 1;
+    uint32 at = 2;
+    uint32 mt = 3;
 }
 
 message Empty{

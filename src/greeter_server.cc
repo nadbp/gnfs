@@ -10,7 +10,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <unistd.h>
-
+#include <utime.h>
 
 #ifdef BAZEL_BUILD
 #include "examples/protos/helloworld.grpc.pb.h"
@@ -43,6 +43,7 @@ using helloworld::FlushReq;
 using helloworld::RenameReq;
 using helloworld::ReleaseReq;
 using helloworld::CreateReq;
+using helloworld::UtimeReq;
 
 void translatePath(const char* client_path,char * server_path){
  strcat(server_path,"./798");
@@ -317,7 +318,7 @@ Status grpc_rmdir(ServerContext* context, const Path* client_path,
   Errno* err)override {
   char server_path[512] ={0};
   translatePath(client_path->path().c_str(),server_path);
-  printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,client_path->path().c_str(), server_path);
+  printf("server : %s, path : %s, translated path: %s\n",__FUNCTION__,client_path->path().c_str(), server_path);
 
   int res = rmdir(server_path);
   if(res == -1)
@@ -325,6 +326,33 @@ Status grpc_rmdir(ServerContext* context, const Path* client_path,
   else
     err->set_err(0);
   return Status::OK;    
+}
+
+Status grpc_utimens(ServerContext* context, const UtimeReq* req, Errno* err) override {
+//    struct timespec time[2];
+    struct utimbuf buf;
+    char server_path[512] ={0};
+    translatePath(req->path().c_str(),server_path);
+    printf("server : %s, path : %s, translated path: %s\n",__FUNCTION__,req->path().c_str(), server_path);
+    
+  //  struct timespec at = {req->at()};
+  //  struct timespec mt = {req->mt()};
+
+  //  time[0] = at;
+  //  time[1] = mt;
+  //
+    buf.actime = req->at();
+    buf.modtime = req->mt();
+
+    if(utime(server_path, &buf) == -1) {
+        err->set_err(-errno);
+    } else {
+        err->set_err(0);
+    }
+
+    return Status::OK;
+
+  
 }
 
 
