@@ -12,15 +12,21 @@
 #include <memory>
 #include <string>
 #include <cstring>
+#include <thread> //this_thread::sleep_for
+#include <chrono> //chrono::seconds
 
 #include <grpc++/grpc++.h>
+#include <grpc++/impl/codegen/status_code_enum.h> //DEADLINE_EXCEEDED
 
 #include "helloworld.grpc.pb.h"
+
+
 
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
 using grpc::ClientReader;
+using grpc::DEADLINE_EXCEEDED;
 using helloworld::HelloRequest;
 using helloworld::HelloReply;
 using helloworld::Greeter;
@@ -45,33 +51,6 @@ class GreeterClient {
 public:
   GreeterClient(std::shared_ptr<Channel> channel)
   : stub_(Greeter::NewStub(channel)) {}
-
-  // Assembles the client's payload, sends it and presents the response back
-  // from the server.
-  std::string SayHello(const std::string& user) {
-    // Data we are sending to the server.
-    HelloRequest request;
-    request.set_name(user);
-
-    // Container for the data we expect from the server.
-    HelloReply reply;
-
-    // Context for the client. It could be used to convey extra information to
-    // the server and/or tweak certain RPC behaviors.
-    ClientContext context;
-
-    // The actual RPC.
-    Status status = stub_->SayHello(&context, request, &reply);
-
-    // Act upon its status.
-    if (status.ok()) {
-      return reply.message();
-    } else {
-      std::cout << status.error_code() << ": " << status.error_message()
-      << std::endl;
-      return "RPC failed";
-    }
-  }
   
   int grpc_create(const char* path, mode_t mode, unsigned int flag) {
     ClientContext context;
@@ -235,46 +214,70 @@ public:
    return 0;
  }
 
- int grpc_read(const char *client_path, char *buf, size_t size, off_t offset, int fh)
+ int grpc_read(const char *client_path, char *buf, size_t size, off_t offset, uint64_t* fh)
  {
-  // Connection timeout in seconds
-  unsigned int client_connection_timeout = 5;
+
   ClientContext context;
   // Set timeout for API
-  std::chrono::system_clock::time_point deadline =
-  std::chrono::system_clock::now() + std::chrono::seconds(client_connection_timeout);
-  context.set_deadline(deadline);
+  // // Connection timeout in seconds
+  // unsigned int client_connection_timeout = 5;
+  // std::chrono::system_clock::time_point deadline =
+  // std::chrono::system_clock::now() + std::chrono::seconds(client_connection_timeout);
+  gpr_timespec timeOut;
 
-   ReadReq read_req;
-   read_req.set_path(client_path);
-   read_req.set_size(size);
-   read_req.set_offset(offset);
-   read_req.set_fh(fh);
-   Buffer buffer;
-   std::cout<<"===================read starts============="<<std::endl;
-   Status status = stub_->grpc_read(&context, read_req, &buffer);
-   std::cout<<"===================read ends============="<<std::endl;
-   std::string buf_string(buffer.buffer());
-   std::cout<<"buf_string="<<buf_string<<std::endl;
-   std::strcpy(buf, buf_string.c_str());
-   std::cout<<"*buf="<<*buf<<std::endl;
-   return buffer.nbytes();
- }
+  timeOut.tv_sec=7; //5s
+  timeOut.tv_nsec=0;
+  timeOut.clock_type=GPR_TIMESPAN;
+  context.set_deadline(timeOut);
 
- int grpc_rename(const char *from, const char *to, unsigned int flags)
- {
-   ClientContext context;
-   RenameReq rename_req;
-   rename_req.set_from(from);
-   rename_req.set_to(to);
-   rename_req.set_flags(flags);
-   Errno err;
-   Status status = stub_->grpc_rename(&context, rename_req, &err);
-   return err.err();
- }
+  ReadReq read_req;
+  read_req.set_path(client_path);
+  read_req.set_size(size);
+  read_req.set_offset(offset);
+  read_req.set_fh(*fh);
+  Buffer buffer;
+  std::cout<<"===================read starts============="<<std::endl;
+  Status status = stub_->grpc_read(&context, read_req, &buffer);
+  std::cout<<"===================read ends============="<<std::endl;
 
- int grpc_rmdir(const char *path)
- {
+  std::cout<<"------------------------status.error_code()="<<status.error_code()<<std::endl;
+  if(status.error_code()==DEADLINE_EXCEEDED){
+    for (int i=0; i<5; i++){
+    ClientContext context_reread;
+    std::cout<<"===================REread starts============="<<std::endl;
+    Status status_reread = stub_->grpc_read(&context_reread, read_req, &buffer);
+    if (status.ok())
+      break;
+    std::cout<<"===================REread ends============="<<std::endl;
+    }
+    std::cout<<"Timeout: After 5 times REread, still failed to read the file."<<std::endl;
+    return 1;
+  }
+
+   if (!buffer.err()){//no error happens
+     *fh=buffer.fh(); // in case of server crash, save the new file handle returned by sever 
+     std::string buf_string(buffer.buffer());
+     std::strcpy(buf, buf_string.c_str());
+     return buffer.nbytes();
+   }else{
+    return buffer.err();
+  }
+}
+
+int grpc_rename(const char *from, const char *to, unsigned int flags)
+{
+ ClientContext context;
+ RenameReq rename_req;
+ rename_req.set_from(from);
+ rename_req.set_to(to);
+ rename_req.set_flags(flags);
+ Errno err;
+ Status status = stub_->grpc_rename(&context, rename_req, &err);
+ return err.err();
+}
+
+int grpc_rmdir(const char *path)
+{
   ClientContext context;
   Path client_path;
   client_path.set_path(path);
@@ -351,7 +354,11 @@ static int grpc_open(const char *path, struct fuse_file_info *fi)
 static int grpc_read(const char *path, char *buf, size_t size, off_t offset,
   struct fuse_file_info *fi)
 {
-	return options.greeter->grpc_read(path, buf, size, offset, fi->fh);
+	//in case of server crash during call grpc_read(), file handler changes.
+  printf("===============before call grpc_read(), file heandle = %d \n", fi->fh);
+  int ret=options.greeter->grpc_read(path, buf, size, offset, &(fi->fh));
+  printf("===============after call grpc_read(), file heandle = %d \n", fi->fh);
+  return ret;
 }
 
 static int grpc_getattr(const char *path, struct stat *statbuf,struct fuse_file_info *fi)

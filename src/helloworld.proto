@@ -39,12 +39,11 @@ package helloworld;
 // The greeting service definition.
 service Greeter {
   // Sends a greeting
-  rpc SayHello (HelloRequest) returns (HelloReply) {}
+  //rpc SayHello (HelloRequest) returns (HelloReply) {}
   rpc grpc_mkdir (Request) returns (Errno) {}
   rpc grpc_getattr (Path) returns (Stbuf) {}
   rpc grpc_readdir (Path) returns (stream Directory) {}
-  rpc grpc_write (WriteRequest) returns (WriteBytes) {}
- // rpc grpc_readdir (Path) returns (stream Directory) {} 
+  rpc grpc_write (WriteRequest) returns (WriteBytes) {} 
   rpc grpc_open (PathFlags) returns (FileHandle) {} 
   rpc grpc_read (ReadReq) returns (Buffer) {}
   rpc grpc_flush (FlushReq) returns (Errno) {}
@@ -141,6 +140,8 @@ message ReadReq{
 message Buffer{
   bytes buffer = 1;
   int32 nbytes = 2;
+  int32 err=3;
+  int32 fh = 4;
 }
 
 message ReleaseReq{

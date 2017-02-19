@@ -58,16 +58,6 @@ void translatePath(const char* client_path,char * server_path){
 // Logic and data behind the server's behavior.
 class GreeterServiceImpl final : public Greeter::Service {
 
-
-
-  Status SayHello(ServerContext* context, const HelloRequest* request,
-    HelloReply* reply) override {
-    std::string prefix("Hello ");
-    std::cout<<request->name()<<std::endl;
-    reply->set_message(prefix + request->name());
-    return Status::OK;
-  }
-
   Status grpc_write(ServerContext* context, const WriteRequest* req, WriteBytes* noBytes ) override {
     int fd, nbytes;
     char server_path[512] = {0};
@@ -244,6 +234,8 @@ Status grpc_release(ServerContext* context, const ReleaseReq* req, Errno* err) o
   translatePath(req->path().c_str(),server_path);
   printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,req->path().c_str(), server_path);
 
+  std::cout<<"---------------release file handle= "<<req->fh()<<std::endl;
+
   if(req->fh()) {
     if(fsync(req->fh()) < 0) {
       perror(strerror(errno));
@@ -267,39 +259,50 @@ Status grpc_read(ServerContext* context, const ReadReq* read_req,
   translatePath(read_req->path().c_str(),server_path);
   printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,read_req->path().c_str(), server_path);
 
-  // //let server sleep for 5s, to simulate crash
-  // std::cout<<"===================sleeping starts============="<<std::endl;
-  // std::this_thread::sleep_for(std::chrono::seconds(5));
-  // std::cout<<"===================sleeping ends============="<<std::endl;
+  std::cout<<"read file_handle="<<read_req->fh()<<std::endl;
 
-  int file_handle= open (server_path ,O_RDONLY);
-  if (file_handle ==0){      
-    printf("failed to open %s\n",server_path);
-    return Status::CANCELLED;
+  ////******sleep for 7 seconds, test client read() timeout
+  ////******sleep for 5 seconds, test server crash
+  std::this_thread::sleep_for(std::chrono::seconds(5)); 
+
+  int file_handle;
+  if (read_req->fh()==0){
+    file_handle= open (server_path ,O_RDONLY);
+    if (file_handle ==0){      
+      printf("failed to open %s\n",server_path);
+      buffer->set_err(1);
+    }
+  }else{
+      file_handle=read_req->fh();
   }
 
-  char * buf = (char*)malloc(read_req->size());
-  int nbytes;
+  buffer->set_fh(file_handle);
+
+    char * buf = (char*)malloc(read_req->size());
+    int nbytes;
       //didn't use the file handle passed by read_req, because no example do this.
-  nbytes = pread(file_handle,buf,read_req->size(), read_req->offset());
-  if ( nbytes==-1){
-   perror(strerror(errno));
-   printf("server cannot seek at: %d\n", read_req->offset());
+    nbytes = pread(file_handle,buf,read_req->size(), read_req->offset());
+    if ( nbytes==-1){
+     perror(strerror(errno));
+     buffer->set_err(-errno);
+     printf("server cannot seek at: %d\n", read_req->offset());
+   }
+
+   if (!buffer->err()) {// no error happens
+   printf("server :no of bytes read :%d \n",nbytes);
+
+   string buf_string(buf);
+   // std::cout<<"*buf="<<*buf<<std::endl;
+   // std::cout<<"buf_string="<<buf_string<<std::endl;
+   buffer->set_buffer(buf_string);
+   buffer->set_nbytes(nbytes);
  }
 
- printf("server :no of bytes read :%d \n",nbytes);
+   if (file_handle >0)
+    close(file_handle);
 
- string buf_string(buf);
- std::cout<<"*buf="<<*buf<<std::endl;
- std::cout<<"buf_string="<<buf_string<<std::endl;
- buffer->set_buffer(buf_string);
- buffer->set_nbytes(nbytes);
-
- if (file_handle >0)
-  close(file_handle);
-
-free(buf);
-return Status::OK;
+  free(buf);
+  return Status::OK;
 }
 
 Status grpc_rename(ServerContext* context, const RenameReq* rename_req, 
