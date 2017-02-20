@@ -164,6 +164,13 @@ public:
 
   int grpc_write(const char * path, const char* buffer, size_t size, off_t offset, struct fuse_file_info *fi) {
     ClientContext context;
+     // Set timeout for API, Connection timeout in seconds
+    gpr_timespec timeOut;
+    timeOut.tv_sec=5; //5s
+    timeOut.tv_nsec=0;
+    timeOut.clock_type=GPR_TIMESPAN;
+    context.set_deadline(timeOut);
+
     WriteRequest req;
     req.set_path(path);
     req.set_buffer(buffer);
@@ -172,14 +179,29 @@ public:
     req.set_fh(fi->fh);
     WriteBytes nbytes;
 
+    std::cout<<"===================write starts============="<<std::endl;
     Status s = stub_->grpc_write(&context, req, &nbytes);
-    if(s.ok()) {
-      std::cout<< "write rpc succeeded." << std::endl;
-    } else {
-      std::cout << "write rpc failed." << std::endl;
+    std::cout<<"===================write ends============="<<std::endl;
+    std::cout<<"------------------------status.error_code()="<<s.error_code()<<std::endl;
+  if(s.error_code()==DEADLINE_EXCEEDED){//timeout
+    for (int i=0; i<5; i++){ //retry 5 times
+    ClientContext context_rewrite;
+    std::cout<<"===================REwrite starts============="<<std::endl;
+    Status s_rewrite = stub_->grpc_write(&context_rewrite, req, &nbytes);
+    if (s.ok())
+      break;
+    std::cout<<"===================REwrite ends============="<<std::endl;
+    }
+    std::cout<<"Timeout: After 5 times REread, still failed to write the file."<<std::endl;
+    return 1;
     }
 
-    return nbytes.nbytes();
+    if (!nbytes.err()){//no error happens
+     fi->fh=nbytes.fh(); // in case of server crash, save the new file handle returned by sever 
+     return nbytes.nbytes();
+    }else{
+    return nbytes.err();
+    }
 
   }
 
@@ -211,21 +233,16 @@ public:
    Status status = stub_->grpc_open(&context, path_flags, &file_handle);
   	//fh=file_handle.fh();
    fi->fh = file_handle.fh();
-   return 0;
+   return file_handle.err();
  }
 
  int grpc_read(const char *client_path, char *buf, size_t size, off_t offset, uint64_t* fh)
  {
 
   ClientContext context;
-  // Set timeout for API
-  // // Connection timeout in seconds
-  // unsigned int client_connection_timeout = 5;
-  // std::chrono::system_clock::time_point deadline =
-  // std::chrono::system_clock::now() + std::chrono::seconds(client_connection_timeout);
+  // Set timeout for API, Connection timeout in seconds
   gpr_timespec timeOut;
-
-  timeOut.tv_sec=7; //5s
+  timeOut.tv_sec=5; //5s
   timeOut.tv_nsec=0;
   timeOut.clock_type=GPR_TIMESPAN;
   context.set_deadline(timeOut);
@@ -241,8 +258,8 @@ public:
   std::cout<<"===================read ends============="<<std::endl;
 
   std::cout<<"------------------------status.error_code()="<<status.error_code()<<std::endl;
-  if(status.error_code()==DEADLINE_EXCEEDED){
-    for (int i=0; i<5; i++){
+  if(status.error_code()==DEADLINE_EXCEEDED){ //timeout
+    for (int i=0; i<5; i++){ //retry 5 times
     ClientContext context_reread;
     std::cout<<"===================REread starts============="<<std::endl;
     Status status_reread = stub_->grpc_read(&context_reread, read_req, &buffer);
@@ -361,6 +378,15 @@ static int grpc_read(const char *path, char *buf, size_t size, off_t offset,
   return ret;
 }
 
+static int grpc_write(const char* path, const char* buffer, size_t size, off_t offset, struct fuse_file_info *fi) 
+{
+  //in case of server crash during call grpc_write(), file handler changes.
+  printf("===============before call grpc_write(), file heandle = %d \n", fi->fh);
+  int ret=options.greeter->grpc_write(path, buffer, size, offset, fi);
+  printf("===============before call grpc_write(), file heandle = %d \n", fi->fh);
+  return ret;
+}
+
 static int grpc_getattr(const char *path, struct stat *statbuf,struct fuse_file_info *fi)
 {
   (void) fi;
@@ -373,10 +399,7 @@ static int grpc_mkdir(const char *path, mode_t mode)
   return options.greeter->grpc_mkdir(path, mode);
 }
 
-static int grpc_write(const char* path, const char* buffer, size_t size, off_t offset, struct fuse_file_info *fi) 
-{
-  return options.greeter->grpc_write(path, buffer, size, offset, fi);
-}
+
 
 static int grpc_unlink(const char* path) {
   return options.greeter->grpc_unlink(path);

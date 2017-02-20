@@ -27,3 +27,7 @@ gdb greeter_client
 ls /home/liuyang/Downloads/mnt
 #other trial commands
 fusermount -u /home/liuyang/Downloads/mnt
+
+//-------------------use test.sh---------------------
+//in a new terminal window, do:
+./test.sh path/to/mount/point

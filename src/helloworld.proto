@@ -106,6 +106,8 @@ message Errno {
 
 message WriteBytes {
   int32 nbytes = 1;
+  int32 err=2;
+  int32 fh = 3;
 }
 
 message WriteRequest {
@@ -128,6 +130,7 @@ message PathFlags{
 
 message FileHandle{
   int32 fh = 1;
+  int32 err=2;
 }
 
 message ReadReq{

@@ -58,32 +58,116 @@ void translatePath(const char* client_path,char * server_path){
 // Logic and data behind the server's behavior.
 class GreeterServiceImpl final : public Greeter::Service {
 
+  Status grpc_read(ServerContext* context, const ReadReq* read_req, 
+  Buffer* buffer)override{
+  char server_path[512] ={0};
+  translatePath(read_req->path().c_str(),server_path);
+  printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,read_req->path().c_str(), server_path);
+
+  std::cout<<"---------------read file_handle="<<read_req->fh()<<std::endl;
+
+  ////******sleep for 7 seconds, test client read() timeout
+  ////******sleep for 5 seconds, test server crash
+  //std::this_thread::sleep_for(std::chrono::seconds(5)); 
+
+  int file_handle;
+  char * buf = (char*)malloc(read_req->size());
+    int nbytes;
+//use the fd passed by client to read file
+ nbytes = pread(read_req->fh(),buf,read_req->size(), read_req->offset());
+ if ( nbytes==-1){   //server reboot
+      file_handle= open (server_path ,O_RDONLY); //use path to open the file
+      if (file_handle ==0){ //path is wrong, return error to client      
+        printf("failed to open %s\n",server_path);
+        buffer->set_err(1);
+      }else{ //path is right
+        nbytes = pread(file_handle, buf,read_req->size(), read_req->offset());
+        buffer->set_fh(file_handle);
+        if (nbytes==-1){
+          buffer->set_err(-errno);
+          printf("server cannot seek at: %d\n", read_req->offset());
+        }
+      }
+    }else{//file handle passed by client is right
+      buffer->set_fh(read_req->fh());
+    }
+
+    printf("----------file handle to return to client :%d ------------\n",buffer->fh());
+   if (!buffer->err()) {// no error happens
+     printf("server :no of bytes read :%d \n",nbytes);
+
+     string buf_string(buf);
+   // std::cout<<"*buf="<<*buf<<std::endl;
+   // std::cout<<"buf_string="<<buf_string<<std::endl;
+     buffer->set_buffer(buf_string);
+     buffer->set_nbytes(nbytes);
+   }
+
+   // if (file_handle >0)
+   //  close(file_handle);
+
+   free(buf);
+   return Status::OK;
+}
+
   Status grpc_write(ServerContext* context, const WriteRequest* req, WriteBytes* noBytes ) override {
-    int fd, nbytes;
+    int file_handle, nbytes;
     char server_path[512] = {0};
     translatePath(req->path().c_str(), server_path);
     printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,req->path().c_str(), server_path);
-
-    fd = open(server_path, O_WRONLY);
-    if(fd == 0) {
-      printf("fail to open %s\n", server_path);
-      noBytes->set_nbytes(-1);
-      return Status::CANCELLED;
-    }
     
-    nbytes = pwrite(fd, req->buffer().c_str(), req->size(), req->offset());
-    if(nbytes < 0) {
-      printf("File system write failed zero data write\n");
-      noBytes->set_nbytes(nbytes);
-      return Status::CANCELLED;
-    } 
-
-    if(fd > 0) {
-      close(fd);
+    std::cout<<"---------------write file_handle="<<req->fh()<<std::endl;
+    //use the fd passed by client to read file
+    nbytes = pwrite(req->fh(), req->buffer().c_str(), req->size(), req->offset());
+    std::cout<<"-----------nbytes="<<nbytes<<std::endl;
+    std::cout<<"-----------error no="<<strerror(errno)<<std::endl;
+    if ( nbytes==-1){  //server reboot
+      file_handle= open (server_path ,O_WRONLY); //use path to open the file
+      std::cout<<"---------------open file_handle="<<file_handle<<std::endl;
+      if (file_handle ==0){ //path is wrong, return error to client      
+        printf("failed to open %s\n",server_path);
+        noBytes->set_err(1);
+      }else{ //path is right
+        nbytes = pwrite(file_handle, req->buffer().c_str(), req->size(), req->offset());
+        noBytes->set_fh(file_handle);
+        if (nbytes==-1){
+          noBytes->set_err(-errno);
+          printf("File system write failed zero data write\n");
+        }
+      }
+    }else{//file handle passed by client is right
+      noBytes->set_fh(req->fh());
     }
 
-    noBytes->set_nbytes(nbytes);
-    return Status::OK;
+     printf("----------file handle to return to client :%d ------------\n",noBytes->fh());
+   if (!noBytes->err()) {// no error happens
+     printf("------------server :no of bytes written :%d \n",nbytes);
+     noBytes->set_nbytes(nbytes);
+   }
+
+   return Status::OK;
+    //---------------------
+
+    // fd = open(server_path, O_WRONLY);
+    // if(fd == 0) {
+    //   printf("fail to open %s\n", server_path);
+    //   noBytes->set_nbytes(-1);
+    //   return Status::CANCELLED;
+    // }
+    
+    // nbytes = pwrite(fd, req->buffer().c_str(), req->size(), req->offset());
+    // if(nbytes < 0) {
+    //   printf("File system write failed zero data write\n");
+    //   noBytes->set_nbytes(nbytes);
+    //   return Status::CANCELLED;
+    // } 
+
+    // if(fd > 0) {
+    //   close(fd);
+    // }
+
+    // noBytes->set_nbytes(nbytes);
+    // return Status::OK;
   }
 
   Status grpc_mkdir(ServerContext* context, const Request* request,
@@ -193,6 +277,7 @@ Status grpc_readdir(ServerContext* context, const Path* client_path,
     writer->Write(directory);
   }
   directory.set_err(0);
+  closedir(dp);
   return Status::OK;
 }
 
@@ -203,13 +288,15 @@ Status grpc_open(ServerContext* context, const PathFlags* path_flags,
   printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,path_flags->path().c_str(), server_path);
 
   int file_handle= open (server_path ,path_flags->flags());
+  std::cout<<"---------------open file_handle="<<file_handle<<std::endl;
+  fh->set_fh(file_handle);
   if(file_handle == -1){
+    fh->set_err(-errno);
     perror(strerror(errno));
-    return Status::CANCELLED;
-  }else{
-    fh->set_fh(file_handle);
-    return Status::OK;
-  }     
+  }else{    
+    fh->set_err(0);    
+  }
+  return Status::OK;     
 }
 
 Status grpc_unlink(ServerContext* context, const Path* path, Errno * err) override {
@@ -236,74 +323,24 @@ Status grpc_release(ServerContext* context, const ReleaseReq* req, Errno* err) o
 
   std::cout<<"---------------release file handle= "<<req->fh()<<std::endl;
 
-  if(req->fh()) {
-    if(fsync(req->fh()) < 0) {
-      perror(strerror(errno));
-      err->set_err(-errno);
-    }
-    if(close(req->fh()) == -1) {
-      perror(strerror(errno));
-      err->set_err(-errno);
-    }
-  }
+  // if(req->fh()) {
+  //   if(fsync(req->fh()) < 0) {
+  //     perror(strerror(errno));
+  //     err->set_err(-errno);
+  //   }
+  //   if(close(req->fh()) == -1) {
+  //     perror(strerror(errno));
+  //     err->set_err(-errno);
+  //   }
+  // }
 
-  err->set_err(0);
+  // err->set_err(0);
   return Status::OK;
 }
 
 
 
-Status grpc_read(ServerContext* context, const ReadReq* read_req, 
-  Buffer* buffer)override{
-  char server_path[512] ={0};
-  translatePath(read_req->path().c_str(),server_path);
-  printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,read_req->path().c_str(), server_path);
 
-  std::cout<<"read file_handle="<<read_req->fh()<<std::endl;
-
-  ////******sleep for 7 seconds, test client read() timeout
-  ////******sleep for 5 seconds, test server crash
-  std::this_thread::sleep_for(std::chrono::seconds(5)); 
-
-  int file_handle;
-  if (read_req->fh()==0){
-    file_handle= open (server_path ,O_RDONLY);
-    if (file_handle ==0){      
-      printf("failed to open %s\n",server_path);
-      buffer->set_err(1);
-    }
-  }else{
-      file_handle=read_req->fh();
-  }
-
-  buffer->set_fh(file_handle);
-
-    char * buf = (char*)malloc(read_req->size());
-    int nbytes;
-      //didn't use the file handle passed by read_req, because no example do this.
-    nbytes = pread(file_handle,buf,read_req->size(), read_req->offset());
-    if ( nbytes==-1){
-     perror(strerror(errno));
-     buffer->set_err(-errno);
-     printf("server cannot seek at: %d\n", read_req->offset());
-   }
-
-   if (!buffer->err()) {// no error happens
-   printf("server :no of bytes read :%d \n",nbytes);
-
-   string buf_string(buf);
-   // std::cout<<"*buf="<<*buf<<std::endl;
-   // std::cout<<"buf_string="<<buf_string<<std::endl;
-   buffer->set_buffer(buf_string);
-   buffer->set_nbytes(nbytes);
- }
-
-   if (file_handle >0)
-    close(file_handle);
-
-  free(buf);
-  return Status::OK;
-}
 
 Status grpc_rename(ServerContext* context, const RenameReq* rename_req, 
   Errno* err)override {
