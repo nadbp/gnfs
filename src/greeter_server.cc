@@ -13,6 +13,7 @@
 #include <utime.h>
 #include <thread> //this_thread::sleep_for
 #include <chrono> //chrono::seconds
+#include <unordered_set>
 
 #ifdef BAZEL_BUILD
 #include "examples/protos/helloworld.grpc.pb.h"
@@ -48,6 +49,7 @@ using helloworld::CreateReq;
 using helloworld::UtimeReq;
 
 static const char* server_root_path;
+static std::unordered_set<unsigned long int> seq_set;
 
 void translatePath(const char* client_path,char * server_path){
  strcat(server_path,server_root_path);
@@ -59,22 +61,22 @@ void translatePath(const char* client_path,char * server_path){
 class GreeterServiceImpl final : public Greeter::Service {
 
   Status grpc_read(ServerContext* context, const ReadReq* read_req, 
-  Buffer* buffer)override{
-  char server_path[512] ={0};
-  translatePath(read_req->path().c_str(),server_path);
-  printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,read_req->path().c_str(), server_path);
+    Buffer* buffer)override{
+    char server_path[512] ={0};
+    translatePath(read_req->path().c_str(),server_path);
+    printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,read_req->path().c_str(), server_path);
 
-  std::cout<<"---------------read file_handle="<<read_req->fh()<<std::endl;
+    std::cout<<"---------------read file_handle="<<read_req->fh()<<std::endl;
 
   ////******sleep for 7 seconds, test client read() timeout
   ////******sleep for 5 seconds, test server crash
   //std::this_thread::sleep_for(std::chrono::seconds(5)); 
 
-  int file_handle;
-  char * buf = (char*)malloc(read_req->size());
+    int file_handle;
+    char * buf = (char*)malloc(read_req->size());
     int nbytes;
 //use the fd passed by client to read file
- nbytes = pread(read_req->fh(),buf,read_req->size(), read_req->offset());
+    nbytes = pread(read_req->fh(),buf,read_req->size(), read_req->offset());
  if ( nbytes==-1){   //server reboot
       file_handle= open (server_path ,O_RDONLY); //use path to open the file
       if (file_handle ==0){ //path is wrong, return error to client      
@@ -108,19 +110,19 @@ class GreeterServiceImpl final : public Greeter::Service {
 
    free(buf);
    return Status::OK;
-}
+ }
 
-  Status grpc_write(ServerContext* context, const WriteRequest* req, WriteBytes* noBytes ) override {
-    int file_handle, nbytes;
-    char server_path[512] = {0};
-    translatePath(req->path().c_str(), server_path);
-    printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,req->path().c_str(), server_path);
-    
-    std::cout<<"---------------write file_handle="<<req->fh()<<std::endl;
+ Status grpc_write(ServerContext* context, const WriteRequest* req, WriteBytes* noBytes ) override {
+  int file_handle, nbytes;
+  char server_path[512] = {0};
+  translatePath(req->path().c_str(), server_path);
+  printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,req->path().c_str(), server_path);
+  
+  std::cout<<"---------------write file_handle="<<req->fh()<<std::endl;
     //use the fd passed by client to read file
-    nbytes = pwrite(req->fh(), req->buffer().c_str(), req->size(), req->offset());
-    std::cout<<"-----------nbytes="<<nbytes<<std::endl;
-    std::cout<<"-----------error no="<<strerror(errno)<<std::endl;
+  nbytes = pwrite(req->fh(), req->buffer().c_str(), req->size(), req->offset());
+  std::cout<<"-----------nbytes="<<nbytes<<std::endl;
+  std::cout<<"-----------error no="<<strerror(errno)<<std::endl;
     if ( nbytes==-1){  //server reboot
       file_handle= open (server_path ,O_WRONLY); //use path to open the file
       std::cout<<"---------------open file_handle="<<file_handle<<std::endl;
@@ -139,96 +141,54 @@ class GreeterServiceImpl final : public Greeter::Service {
       noBytes->set_fh(req->fh());
     }
 
-     printf("----------file handle to return to client :%d ------------\n",noBytes->fh());
+    printf("----------file handle to return to client :%d ------------\n",noBytes->fh());
    if (!noBytes->err()) {// no error happens
      printf("------------server :no of bytes written :%d \n",nbytes);
      noBytes->set_nbytes(nbytes);
    }
 
-   return Status::OK;
-    //---------------------
+  //doesn't call fsync, this is the write-behind approach.
 
-    // fd = open(server_path, O_WRONLY);
-    // if(fd == 0) {
-    //   printf("fail to open %s\n", server_path);
-    //   noBytes->set_nbytes(-1);
-    //   return Status::CANCELLED;
-    // }
-    
-    // nbytes = pwrite(fd, req->buffer().c_str(), req->size(), req->offset());
-    // if(nbytes < 0) {
-    //   printf("File system write failed zero data write\n");
-    //   noBytes->set_nbytes(nbytes);
-    //   return Status::CANCELLED;
-    // } 
-
-    // if(fd > 0) {
-    //   close(fd);
-    // }
-
-    // noBytes->set_nbytes(nbytes);
-    // return Status::OK;
-  }
-
-  Status grpc_mkdir(ServerContext* context, const Request* request,
-    Errno* err) override {
-    char server_path[512] ={0};
-    translatePath(request->path().c_str(),server_path);
-    printf("Server before mkdir: %s, Path : %s, Translated path: %s\n",__FUNCTION__,request->path().c_str(), server_path);
-    int res=mkdir(server_path, request->mode());
-    printf("Server after mkdir: %s, Path : %s, Translated path: %s\n",__FUNCTION__,request->path().c_str(), server_path);
-
-    if(res == -1){
-     perror(strerror(errno));
-     err->set_err(-errno);
-   }else
-   err->set_err(0);
    return Status::OK;
  }
 
- Status grpc_create(ServerContext* context, const CreateReq* request, Errno* err) override {
+ Status grpc_mkdir(ServerContext* context, const Request* request,
+  Errno* err) override {
   char server_path[512] ={0};
   translatePath(request->path().c_str(),server_path);
   printf("Server before mkdir: %s, Path : %s, Translated path: %s\n",__FUNCTION__,request->path().c_str(), server_path);
-  int res=open(server_path, request->flag(), request->mode());
+  int res=mkdir(server_path, request->mode());
   printf("Server after mkdir: %s, Path : %s, Translated path: %s\n",__FUNCTION__,request->path().c_str(), server_path);
 
-  if(res < 0){
+  if(res == -1){
    perror(strerror(errno));
    err->set_err(-errno);
  }else
  err->set_err(0);
  return Status::OK;
+}
 
+Status grpc_create(ServerContext* context, const CreateReq* request, FileHandle* fh) override {
+  char server_path[512] ={0};
+  translatePath(request->path().c_str(),server_path);
+  printf("Server: %s, Path : %s, Translated path: %s\n",__FUNCTION__,request->path().c_str(), server_path);
+  
+  int file_handle=open(server_path, request->flag(), request->mode());
+  std::cout<<"---------------in create(), open file_handle="<<file_handle<<std::endl;
+  fh->set_fh(file_handle);
+  if(file_handle == -1){
+    fh->set_err(-errno);
+    perror(strerror(errno));
+  }else{    
+    fh->set_err(0);    
+  }
+  return Status::OK;
 }
 
 Status grpc_flush(ServerContext* context, const FlushReq* req, Errno* err) override {
-   // int fd, nbytes;
   char server_path[512] = {0};
   translatePath(req->path().c_str(), server_path);
   printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,req->path().c_str(), server_path);
-    //fd = req->fh();
-    //printf("file handle: %d\n", req->fh());
-    //fd = open(server_path, O_WRONLY);                
-    //printf("file handle open: %d\n", fd);
-   /* if(fd == 0) {
-        printf("fail to get file %s\n", server_path);
-        err->set_err(-errno);
-        return Status::CANCELLED;
-    }
-    nbytes = fsync(fd);
-    if(nbytes < 0) {
-        printf("File system fsync failed\n");
-        err->set_err(-errno);
-        return Status::CANCELLED;
-    }
-
-    if(fd > 0) {
-
-        close(fd);
-    
-    }*/
-
   err->set_err(0);
 
   return Status::OK;
@@ -316,30 +276,43 @@ Status grpc_unlink(ServerContext* context, const Path* path, Errno * err) overri
 
 }
 
-Status grpc_release(ServerContext* context, const ReleaseReq* req, Errno* err) override {
+Status grpc_release(ServerContext* context, const ReleaseReq* req, FileHandle* fd) override {
   char server_path[512] ={0};
   translatePath(req->path().c_str(),server_path);
   printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,req->path().c_str(), server_path);
 
-  std::cout<<"---------------release file handle= "<<req->fh()<<std::endl;
+  std::cout<<"---------------try to release file handle= "<<req->fh()<<std::endl;
+  fd->set_fh(req->fh());//if nothing wrong, the returned file handle should be the one passed by client
+  fd->set_err(0);
 
-  // if(req->fh()) {
-  //   if(fsync(req->fh()) < 0) {
-  //     perror(strerror(errno));
-  //     err->set_err(-errno);
-  //   }
-  //   if(close(req->fh()) == -1) {
-  //     perror(strerror(errno));
-  //     err->set_err(-errno);
-  //   }
-  // }
+  //test timeout. client timeout at 5s
+  //std::this_thread::sleep_for(std::chrono::seconds(6)); 
 
-  // err->set_err(0);
-  return Status::OK;
+  //check if the seq exists in the seq_set
+  std::cout<<"---------------seq no="<<req->seq()<<std::endl;
+  std::unordered_set<unsigned long int>::iterator got = seq_set.find(req->seq());
+  if (got != seq_set.end()){ //this is an duplicate request
+    std::cout<<"---------------duplicate request"<<std::endl;
+    return Status::OK;
+  } else {
+    //check if the file handle exists
+    if(fsync(req->fh())==0){//file handle exists
+      std::cout<<"---------------fsync() succeed"<<std::endl;
+      seq_set.insert(req->seq());
+      if(close(req->fh()) == -1) {
+        perror(strerror(errno));
+        fd->set_err(-errno);
+      }
+      return Status::OK;
+    }else {//file handle doesn't exist, lookup path to get a new one. tell client to resend.
+      perror(strerror(errno));//print the error returned by fsync()
+      int file_handle= open (server_path ,O_RDWR); //use path to open the file
+      std::cout<<"---------------wrong file handle, returned new file handle="<<file_handle<<std::endl;
+      fd->set_fh(file_handle); //return new file handle to client
+      return Status::CANCELLED; //tell client to resend
+    }
+  }
 }
-
-
-
 
 
 Status grpc_rename(ServerContext* context, const RenameReq* rename_req, 

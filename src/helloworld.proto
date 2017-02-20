@@ -50,8 +50,8 @@ service Greeter {
   rpc grpc_unlink (Path) returns (Errno) {}
   rpc grpc_rename (RenameReq) returns (Errno) {}
   rpc grpc_rmdir (Path) returns (Errno) {}
-  rpc grpc_release (ReleaseReq) returns (Errno) {}
-  rpc grpc_create (CreateReq) returns (Errno) {}
+  rpc grpc_release (ReleaseReq) returns (FileHandle) {}
+  rpc grpc_create (CreateReq) returns (FileHandle) {}
   rpc grpc_utimens (UtimeReq) returns (Errno) {}
 }
 
@@ -150,6 +150,7 @@ message Buffer{
 message ReleaseReq{
     string path = 1;
     int32 fh = 2;
+    int32 seq = 3;
 }
 
 message UtimeReq {

@@ -4,5 +4,6 @@ if [ "$#" -ne 1 ]; then
 	exit -1
 fi
 
-g++ -o ReadWrite ReadWrite.cpp
+g++ -c -std=c++11 ReadWrite.cpp
+g++ -o ReadWrite ReadWrite.o
 ./ReadWrite $1

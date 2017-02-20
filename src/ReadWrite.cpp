@@ -8,6 +8,8 @@
 #include <errno.h>
 #include <iostream>
 #include <unistd.h>
+#include <thread> //this_thread::sleep_for
+#include <chrono> //chrono::seconds
 using namespace std;
 
 int main(int argc, char *argv[])
@@ -31,19 +33,26 @@ std::cout<<"open file handle="<<fd<<std::endl;
 read_bytes = pread(fd,buffer,size, offset);
 if (read_bytes<0)
   perror(strerror(errno));
-cout<<"content read="<<*buffer<<endl;
+cout<<"content read="<<buffer<<endl;
 cout<<"# of bytes read="<<read_bytes<<endl;
 
-write_bytes = pwrite(fd,buffer,read_bytes,offset+size);
+//first write
+write_bytes = pwrite(fd,buffer,read_bytes,offset+read_bytes);
 if (write_bytes<0)
   perror(strerror(errno));
 cout<<"# of bytes written="<<write_bytes<<endl;
 
-if (fd >0){
-  cout<<"closing the fd="<<fd<<endl;
-  close(fd);
-  cout<<"closing finish. fd="<<fd<<endl;
-}
+//second write
+write_bytes = pwrite(fd,buffer,read_bytes,offset+2*read_bytes);
+if (write_bytes<0)
+  perror(strerror(errno));
+cout<<"# of bytes written="<<write_bytes<<endl;
+
+// if (fd >0){
+//   cout<<"closing the fd="<<fd<<endl;
+//   close(fd);
+//   cout<<"closing finish. fd="<<fd<<endl;
+// }
       
 free(buffer);
 
