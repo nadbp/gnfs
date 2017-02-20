@@ -51,7 +51,7 @@ service Greeter {
   rpc grpc_rename (RenameReq) returns (Errno) {}
   rpc grpc_rmdir (Path) returns (Errno) {}
   rpc grpc_release (ReleaseReq) returns (Errno) {}
-  rpc grpc_create (CreateReq) returns (Errno) {}
+  rpc grpc_create (CreateReq) returns (FileHandle) {}
   rpc grpc_utimens (UtimeReq) returns (Errno) {}
 }
 

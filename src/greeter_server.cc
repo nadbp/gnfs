@@ -153,6 +153,7 @@ class GreeterServiceImpl final : public Greeter::Service {
    }
   }
 
+
    return Status::OK;
   }
 
@@ -172,20 +173,21 @@ class GreeterServiceImpl final : public Greeter::Service {
    return Status::OK;
  }
 
- Status grpc_create(ServerContext* context, const CreateReq* request, Errno* err) override {
+ Status grpc_create(ServerContext* context, const CreateReq* request, FileHandle* fh) override {
   char server_path[512] ={0};
   translatePath(request->path().c_str(),server_path);
-  printf("Server before mkdir: %s, Path : %s, Translated path: %s\n",__FUNCTION__,request->path().c_str(), server_path);
-  int res=open(server_path, request->flag(), request->mode());
-  printf("Server after mkdir: %s, Path : %s, Translated path: %s\n",__FUNCTION__,request->path().c_str(), server_path);
-
-  if(res < 0){
-   perror(strerror(errno));
-   err->set_err(-errno);
- }else
- err->set_err(0);
+  printf("Server: %s, Path : %s, Translated path: %s\n",__FUNCTION__,request->path().c_str(), server_path);
+  
+  int file_handle=open(server_path, request->flag(), request->mode());
+  std::cout<<"---------------in create(), open file_handle="<<file_handle<<std::endl;
+  fh->set_fh(file_handle);
+  if(file_handle == -1){
+    fh->set_err(-errno);
+    perror(strerror(errno));
+  }else{    
+    fh->set_err(0);    
+  }
  return Status::OK;
-
 }
 
 Status grpc_flush(ServerContext* context, const FlushReq* req, Errno* err) override {

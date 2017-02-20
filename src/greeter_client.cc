@@ -52,16 +52,18 @@ public:
   GreeterClient(std::shared_ptr<Channel> channel)
   : stub_(Greeter::NewStub(channel)) {}
   
-  int grpc_create(const char* path, mode_t mode, unsigned int flag) {
+  int grpc_create(const char* path, mode_t mode, struct fuse_file_info *fi) {
     ClientContext context;
     CreateReq req;
     req.set_path(path);
     req.set_mode(mode);
-    req.set_flag(flag);
-    Errno err;
+    req.set_flag(fi->flags);
+    FileHandle file_handle;
 
-    Status s = stub_->grpc_create(&context, req, &err);
-    return err.err();
+    Status s = stub_->grpc_create(&context, req, &file_handle);
+    fi->fh = file_handle.fh();
+    std::cout<<"------------------------in grpc_create(), file handle returned by server="<<fi->fh<<std::endl;
+    return file_handle.err();
   }
 
   int grpc_utimens(const char* path, const struct timespec time[2]) 
@@ -365,7 +367,9 @@ static int grpc_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 static int grpc_open(const char *path, struct fuse_file_info *fi)
 {
 //	return options.greeter->grpc_open(path, fi->flags, fi->fh);
+  printf("===============before call grpc_open(), file heandle = %d \n", fi->fh);
   return options.greeter->grpc_open(path, fi);
+  printf("===============after call grpc_open(), file heandle = %d \n", fi->fh);
 }
 
 static int grpc_read(const char *path, char *buf, size_t size, off_t offset,
@@ -399,8 +403,6 @@ static int grpc_mkdir(const char *path, mode_t mode)
   return options.greeter->grpc_mkdir(path, mode);
 }
 
-
-
 static int grpc_unlink(const char* path) {
   return options.greeter->grpc_unlink(path);
 }
@@ -426,7 +428,9 @@ static int grpc_release(const char *path, struct fuse_file_info *fi)
 }
 
 static int grpc_create(const char* path, mode_t mode, struct fuse_file_info *fi) {
-  return options.greeter->grpc_create(path, mode, fi->flags);
+  printf("===============before call grpc_create(), file heandle = %d \n", fi->fh);
+  return options.greeter->grpc_create(path, mode, fi);
+  printf("===============after call grpc_create(), file heandle = %d \n", fi->fh);
 }
 
 static int grpc_utimens(const char* path, const struct timespec time[2], struct fuse_file_info *fi) {
