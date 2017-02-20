@@ -1,6 +1,4 @@
-Assume you have installed fuse and grpc on your local machine.
-
-On your machine:
+Assume you have installed fuse aAssume you have installed fuse aOn your machine:
 make
 sudo mkdir /mnt
 ./greeter_server
@@ -29,5 +27,17 @@ ls /home/liuyang/Downloads/mnt
 fusermount -u /home/liuyang/Downloads/mnt
 
 //-------------------use test.sh---------------------
+//-----------test create a dir, create a file, write somthing to file, create
+//----------- a tar file, remove a dir, untar a .tar file---------------------
 //in a new terminal window, do:
 ./test.sh path/to/mount/point
+
+//-------------------ReadWrite.cpp & run_ReadWrite.sh---------------------
+//----------- test open, read, write and close a file---------------------
+//in a new terminal window, do:
+./run_ReadWrite.sh fileName
+
+
+
+
+
