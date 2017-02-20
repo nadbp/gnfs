@@ -145,29 +145,15 @@ class GreeterServiceImpl final : public Greeter::Service {
      noBytes->set_nbytes(nbytes);
    }
 
+  //call fsync for every write operation, this is the write-through approach.
+  if(noBytes->fh()) {
+    printf("----------call fsync() ------------\n");
+    if(fsync(noBytes->fh()) < 0) {
+      perror(strerror(errno));
+   }
+  }
+
    return Status::OK;
-    //---------------------
-
-    // fd = open(server_path, O_WRONLY);
-    // if(fd == 0) {
-    //   printf("fail to open %s\n", server_path);
-    //   noBytes->set_nbytes(-1);
-    //   return Status::CANCELLED;
-    // }
-    
-    // nbytes = pwrite(fd, req->buffer().c_str(), req->size(), req->offset());
-    // if(nbytes < 0) {
-    //   printf("File system write failed zero data write\n");
-    //   noBytes->set_nbytes(nbytes);
-    //   return Status::CANCELLED;
-    // } 
-
-    // if(fd > 0) {
-    //   close(fd);
-    // }
-
-    // noBytes->set_nbytes(nbytes);
-    // return Status::OK;
   }
 
   Status grpc_mkdir(ServerContext* context, const Request* request,
@@ -203,32 +189,9 @@ class GreeterServiceImpl final : public Greeter::Service {
 }
 
 Status grpc_flush(ServerContext* context, const FlushReq* req, Errno* err) override {
-   // int fd, nbytes;
   char server_path[512] = {0};
   translatePath(req->path().c_str(), server_path);
   printf("Server : %s, Path : %s, Translated path: %s\n",__FUNCTION__,req->path().c_str(), server_path);
-    //fd = req->fh();
-    //printf("file handle: %d\n", req->fh());
-    //fd = open(server_path, O_WRONLY);                
-    //printf("file handle open: %d\n", fd);
-   /* if(fd == 0) {
-        printf("fail to get file %s\n", server_path);
-        err->set_err(-errno);
-        return Status::CANCELLED;
-    }
-    nbytes = fsync(fd);
-    if(nbytes < 0) {
-        printf("File system fsync failed\n");
-        err->set_err(-errno);
-        return Status::CANCELLED;
-    }
-
-    if(fd > 0) {
-
-        close(fd);
-    
-    }*/
-
   err->set_err(0);
 
   return Status::OK;
@@ -323,18 +286,18 @@ Status grpc_release(ServerContext* context, const ReleaseReq* req, Errno* err) o
 
   std::cout<<"---------------release file handle= "<<req->fh()<<std::endl;
 
-  // if(req->fh()) {
-  //   if(fsync(req->fh()) < 0) {
-  //     perror(strerror(errno));
-  //     err->set_err(-errno);
-  //   }
-  //   if(close(req->fh()) == -1) {
-  //     perror(strerror(errno));
-  //     err->set_err(-errno);
-  //   }
-  // }
+  if(req->fh()) {
+    if(fsync(req->fh()) < 0) {
+      perror(strerror(errno));
+      err->set_err(-errno);
+    }
+    if(close(req->fh()) == -1) {
+      perror(strerror(errno));
+      err->set_err(-errno);
+    }
+  }
 
-  // err->set_err(0);
+  err->set_err(0);
   return Status::OK;
 }
 
