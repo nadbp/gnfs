@@ -488,27 +488,27 @@ static int grpc_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 static int grpc_open(const char *path, struct fuse_file_info *fi)
 {
     //	return options.greeter->grpc_open(path, fi->flags, fi->fh);
-    printf("===============before call grpc_open(), file heandle = %d \n", fi->fh);
+    printf("===============before call grpc_open(), file heandle = %ld \n", fi->fh);
     return options.greeter->grpc_open(path, fi);
-    printf("===============after call grpc_open(), file heandle = %d \n", fi->fh);
+    printf("===============after call grpc_open(), file heandle = %ld \n", fi->fh);
 }
 
 static int grpc_read(const char *path, char *buf, size_t size, off_t offset,
         struct fuse_file_info *fi)
 {
     //in case of server crash during call grpc_read(), file handler changes.
-    printf("===============before call grpc_read(), file heandle = %d \n", fi->fh);
+    printf("===============before call grpc_read(), file heandle = %ld \n", fi->fh);
     int ret=options.greeter->grpc_read(path, buf, size, offset, &(fi->fh));
-    printf("===============after call grpc_read(), file heandle = %d \n", fi->fh);
+    printf("===============after call grpc_read(), file heandle = %ld \n", fi->fh);
     return ret;
 }
 
 static int grpc_write(const char* path, const char* buffer, size_t size, off_t offset, struct fuse_file_info *fi) 
 {
     //in case of server crash during call grpc_write(), file handler changes.
-    printf("===============before call grpc_write(), file heandle = %d \n", fi->fh);
+    printf("===============before call grpc_write(), file heandle = %ld \n", fi->fh);
     int ret=options.greeter->grpc_write(path, buffer, size, offset, fi, 0); //0 means this is not a resend
-    printf("===============before call grpc_write(), file heandle = %d \n", fi->fh);
+    printf("===============before call grpc_write(), file heandle = %ld \n", fi->fh);
     return ret;
 }
 
@@ -549,9 +549,9 @@ static int grpc_release(const char *path, struct fuse_file_info *fi)
 }
 
 static int grpc_create(const char* path, mode_t mode, struct fuse_file_info *fi) {
-    printf("===============before call grpc_create(), file heandle = %d \n", fi->fh);
+    printf("===============before call grpc_create(), file heandle = %ld \n", fi->fh);
     return options.greeter->grpc_create(path, mode, fi);
-    printf("===============after call grpc_create(), file heandle = %d \n", fi->fh);
+    printf("===============after call grpc_create(), file heandle = %ld \n", fi->fh);
 }
 
 static int grpc_utimens(const char* path, const struct timespec time[2], struct fuse_file_info *fi) {
