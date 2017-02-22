@@ -70,8 +70,8 @@ class GreeterServiceImpl final : public Greeter::Service {
 
   ////******sleep for 7 seconds, test client read() timeout
   //******sleep for 5 seconds, test server crash
-  std::cout<<"---------------sleeping: please reboot server-------------"<<std::endl;
-  std::this_thread::sleep_for(std::chrono::seconds(5)); 
+  // std::cout<<"---------------sleeping: please reboot server-------------"<<std::endl;
+  // std::this_thread::sleep_for(std::chrono::seconds(5)); 
 
     int file_handle;
     char * buf = (char*)malloc(read_req->size());
@@ -122,8 +122,8 @@ class GreeterServiceImpl final : public Greeter::Service {
   std::cout<<"---------------write file_handle="<<req->fh()<<std::endl;
 
   //******sleep for 5 seconds, test server crash
-  std::cout<<"---------------sleeping: please reboot server-------------"<<std::endl;
-  std::this_thread::sleep_for(std::chrono::seconds(5)); 
+  // std::cout<<"---------------sleeping: please reboot server-------------"<<std::endl;
+  // std::this_thread::sleep_for(std::chrono::seconds(5)); 
 
     //use the fd passed by client to read file
   nbytes = pwrite(req->fh(), req->buffer().c_str(), req->size(), req->offset());
@@ -291,8 +291,8 @@ Status grpc_release(ServerContext* context, const ReleaseReq* req, FileHandle* f
   fd->set_fh(req->fh());//if nothing wrong, the returned file handle should be the one passed by client
   fd->set_err(0);
 
-  //test timeout. client timeout at 5s
-  std::this_thread::sleep_for(std::chrono::seconds(6)); 
+  //test server crash. client timeout at 6s
+  //std::this_thread::sleep_for(std::chrono::seconds(5)); 
 
   //check if the seq exists in the seq_set
   std::cout<<"---------------seq no="<<req->seq()<<std::endl;

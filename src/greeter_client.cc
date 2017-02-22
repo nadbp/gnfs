@@ -116,14 +116,30 @@ public:
 
 // The actual RPC.  
     Status status = stub_->grpc_getattr(&context, pathName, &stbuf);
+    //tolerate server failure
+    printf("-------------Client: %s, status.error_code()= %d ------------\n",__FUNCTION__, status.error_code());
+  if(status.error_code()==14){ 
+    int i=0;
+    for (i=0; i<5; i++){ //retry 5 times
+      std::cout<<"---------------wait for 2s, then resend-------------"<<std::endl;
+      std::this_thread::sleep_for(std::chrono::seconds(2)); 
+      ClientContext context_resend;
+      Status status_resend = stub_->grpc_getattr(&context_resend, pathName, &stbuf);
+      if (status_resend.ok())
+        break;  
+    }
+    if (i==4){
+      std::cout<<"Timeout: After 5 times REread, still failed to getattr."<<std::endl;
+      return 1;
+    }
+  }
+
+
     memset(statbuf, 0, sizeof(struct stat));
 
     statbuf->st_mode = stbuf.stmode();
     statbuf->st_nlink = stbuf.stnlink();
     statbuf->st_size = stbuf.stsize();
-	// std::cout << "link: " << stbuf.stnlink() << std::endl;
-	// std::cout << "size: *** : " << stbuf.stsize() << std::endl;
-	// std::cout<<"stbuf.err()="<<stbuf.err()<<std::endl;
 
     std::cout<<"stbuf.err()="<<stbuf.err()<<std::endl;
     return stbuf.err();
@@ -338,7 +354,7 @@ int grpc_release(const char *path, struct fuse_file_info *fi)
   ClientContext context;
   // Set timeout for API, Connection timeout in seconds
   gpr_timespec timeOut;
-  timeOut.tv_sec=5; //5s
+  timeOut.tv_sec=6; //6s
   timeOut.tv_nsec=0;
   timeOut.clock_type=GPR_TIMESPAN;
   context.set_deadline(timeOut);
@@ -361,18 +377,20 @@ int grpc_release(const char *path, struct fuse_file_info *fi)
   std::cout<<"===================release ends============="<<std::endl;
 
   //timeout
-  Status s_retry;
   if(s.error_code()==DEADLINE_EXCEEDED){ 
     int i=0;
     for (i=0; i<5; i++){ //retry 5 times
       ClientContext context_retry;
       std::cout<<"===================timeout: RErelease starts============="<<std::endl;
-      s_retry = stub_->grpc_release(&context_retry, req, &fd);
+      Status s_retry = stub_->grpc_release(&context_retry, req, &fd);
       if (s_retry.ok()){
         std::cout<<"---------------timeout: RErelease succeed"<<std::endl;
+        data2write.erase(fi->fh);//fsync() succeed, remove data from buffer
         break;
       }
       std::cout<<"===================timeout: RErelease ends============="<<std::endl;
+      std::cout<<"---------------wait for 3s-------------"<<std::endl;
+      std::this_thread::sleep_for(std::chrono::seconds(3)); 
     }
     if (i==4){
       std::cout<<"Timeout: After 5 times RErelease, still failed to release the file."<<std::endl;
@@ -380,14 +398,16 @@ int grpc_release(const char *path, struct fuse_file_info *fi)
     }
   }
 
-  if (s.ok()|| s_retry.ok()){//fsync() succeed, remove data from 
+  //server failure
+  if (s.ok()){//fsync() succeed, remove data from buffer
     std::cout<<"---------------grpc_release() succeed"<<std::endl;
     data2write.erase(fi->fh);
   }else{//fsync() fail, resend
     std::cout<<"---------------grpc_release() fail"<<std::endl;
     uint64_t old_fh=fi->fh; //use the old file handle as key in buffer
     Status s_resend;
-    do{
+    int i=0;
+    for (i=0; i<5; i++){
     //use the file handle returned by server
     fi->fh=fd.fh(); //for calling grpc_write()
     req.set_fh(fd.fh());  //for resend grpc_release()
@@ -400,10 +420,20 @@ int grpc_release(const char *path, struct fuse_file_info *fi)
     }
     std::cout<<"---------------send release req again"<<std::endl;
     ClientContext context_resend;
+    std::cout<<"************send to server file handle= "<<req.fh()<<std::endl;
     s_resend = stub_->grpc_release(&context_resend, req, &fd);
-    }while (!s_resend.ok());
-    //resend release req succeed, erase the buffered data
-    data2write.erase(fi->fh);
+    if (s_resend.ok()){
+        std::cout<<"---------------release succeed"<<std::endl;
+        data2write.erase(old_fh);  //resend release req succeed, erase the buffered data
+        break;
+      }
+    std::cout<<"---------------wait for 3s-------------"<<std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(3)); 
+    }
+    if (i==4){
+      std::cout<<"Timeout: After 5 times resend release req, still failed to release the file."<<std::endl;
+      return 1; 
+    }
   }
 
   return fd.err();
