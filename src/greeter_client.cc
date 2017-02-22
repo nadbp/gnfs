@@ -184,7 +184,7 @@ public:
     ClientContext context;
      // Set timeout for API, Connection timeout in seconds
     gpr_timespec timeOut;
-    timeOut.tv_sec=5; //5s
+    timeOut.tv_sec=6; //6s
     timeOut.tv_nsec=0;
     timeOut.clock_type=GPR_TIMESPAN;
     context.set_deadline(timeOut);
@@ -202,15 +202,17 @@ public:
     Status s = stub_->grpc_write(&context, req, &nbytes);
     std::cout<<"===================write ends============="<<std::endl;
     std::cout<<"------------------------status.error_code()="<<s.error_code()<<std::endl;
-  if(s.error_code()==DEADLINE_EXCEEDED){//timeout
+  if(s.error_code()==DEADLINE_EXCEEDED|| s.error_code()==14){//timeout
     int i=0;
     for (i=0; i<5; i++){ //retry 5 times
       ClientContext context_rewrite;
       std::cout<<"===================REwrite starts============="<<std::endl;
       Status s_rewrite = stub_->grpc_write(&context_rewrite, req, &nbytes);
-      if (s.ok())
+      if (s.ok()||s_rewrite.ok())
         break;
       std::cout<<"===================REwrite ends============="<<std::endl;
+      std::cout<<"---------------wait for 3s-------------"<<std::endl;
+      std::this_thread::sleep_for(std::chrono::seconds(3)); 
     }
     if (i==4){
       std::cout<<"Timeout: After 5 times REread, still failed to write the file."<<std::endl;
@@ -264,7 +266,7 @@ int grpc_read(const char *client_path, char *buf, size_t size, off_t offset, uin
   ClientContext context;
   // Set timeout for API, Connection timeout in seconds
   gpr_timespec timeOut;
-  timeOut.tv_sec=5; //5s
+  timeOut.tv_sec=6; //6s
   timeOut.tv_nsec=0;
   timeOut.clock_type=GPR_TIMESPAN;
   context.set_deadline(timeOut);
@@ -280,15 +282,17 @@ int grpc_read(const char *client_path, char *buf, size_t size, off_t offset, uin
   std::cout<<"===================read ends============="<<std::endl;
 
   std::cout<<"------------------------status.error_code()="<<status.error_code()<<std::endl;
-  if(status.error_code()==DEADLINE_EXCEEDED){ //timeout
+  if(status.error_code()==DEADLINE_EXCEEDED || status.error_code()==14){ //timeout or server failure
     int i=0;
     for (i=0; i<5; i++){ //retry 5 times
       ClientContext context_reread;
       std::cout<<"===================REread starts============="<<std::endl;
       Status status_reread = stub_->grpc_read(&context_reread, read_req, &buffer);
-      if (status.ok())
+      if (status.ok()||status_reread.ok())
         break;
       std::cout<<"===================REread ends============="<<std::endl;
+      std::cout<<"---------------wait for 3s-------------"<<std::endl;
+      std::this_thread::sleep_for(std::chrono::seconds(3)); 
     }
     if (i==4){
       std::cout<<"Timeout: After 5 times REread, still failed to read the file."<<std::endl;
@@ -383,7 +387,7 @@ int grpc_release(const char *path, struct fuse_file_info *fi)
     std::cout<<"---------------grpc_release() fail"<<std::endl;
     uint64_t old_fh=fi->fh; //use the old file handle as key in buffer
     Status s_resend;
-    //do
+    do{
     //use the file handle returned by server
     fi->fh=fd.fh(); //for calling grpc_write()
     req.set_fh(fd.fh());  //for resend grpc_release()
@@ -397,7 +401,9 @@ int grpc_release(const char *path, struct fuse_file_info *fi)
     std::cout<<"---------------send release req again"<<std::endl;
     ClientContext context_resend;
     s_resend = stub_->grpc_release(&context_resend, req, &fd);
-    //while (!s_resend.ok())
+    }while (!s_resend.ok());
+    //resend release req succeed, erase the buffered data
+    data2write.erase(fi->fh);
   }
 
   return fd.err();
