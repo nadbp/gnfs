@@ -48,277 +48,277 @@ using helloworld::CreateReq;
 using helloworld::UtimeReq;
 
 class GreeterClient {
-public:
-  GreeterClient(std::shared_ptr<Channel> channel)
-  : stub_(Greeter::NewStub(channel)) {}
-  
-  int grpc_create(const char* path, mode_t mode, struct fuse_file_info *fi) {
-    ClientContext context;
-    CreateReq req;
-    req.set_path(path);
-    req.set_mode(mode);
-    req.set_flag(fi->flags);
-    FileHandle file_handle;
+    public:
+        GreeterClient(std::shared_ptr<Channel> channel)
+            : stub_(Greeter::NewStub(channel)) {}
 
-    Status s = stub_->grpc_create(&context, req, &file_handle);
-    fi->fh = file_handle.fh();
-    std::cout<<"------------------------in grpc_create(), file handle returned by server="<<fi->fh<<std::endl;
-    return file_handle.err();
-  }
+        int grpc_create(const char* path, mode_t mode, struct fuse_file_info *fi) {
+            ClientContext context;
+            CreateReq req;
+            req.set_path(path);
+            req.set_mode(mode);
+            req.set_flag(fi->flags);
+            FileHandle file_handle;
 
-  int grpc_utimens(const char* path, const struct timespec time[2]) 
-  {
-    ClientContext context;
-    UtimeReq req;
-    req.set_path(path);
-    req.set_at(time[0].tv_sec);
-    req.set_mt(time[0].tv_sec);
-    Errno err;
+            Status s = stub_->grpc_create(&context, req, &file_handle);
+            fi->fh = file_handle.fh();
+            std::cout<<"------------------------in grpc_create(), file handle returned by server="<<fi->fh<<std::endl;
+            return file_handle.err();
+        }
 
-    Status s = stub_->grpc_utimens(&context, req, &err);
-    return err.err();
-  }
+        int grpc_utimens(const char* path, const struct timespec time[2]) 
+        {
+            ClientContext context;
+            UtimeReq req;
+            req.set_path(path);
+            req.set_at(time[0].tv_sec);
+            req.set_mt(time[0].tv_sec);
+            Errno err;
 
-  int grpc_mkdir(const char *path, mode_t mode)
-  {
-    ClientContext context;
-    Request req;
-    req.set_path(path);
-    req.set_mode(mode);
-    Errno err;
+            Status s = stub_->grpc_utimens(&context, req, &err);
+            return err.err();
+        }
 
-// The actual RPC.  
-    Status status = stub_->grpc_mkdir(&context, req, &err);
-    std::cout<<err.err()<<std::endl;
-// Act upon its status.
-    if (status.ok()) {
-      return 0;
-    } else {
-      std::cout << status.error_code() << ": " << status.error_message()
-      << std::endl;
-      return err.err();
-    }
-  }
+        int grpc_mkdir(const char *path, mode_t mode)
+        {
+            ClientContext context;
+            Request req;
+            req.set_path(path);
+            req.set_mode(mode);
+            Errno err;
 
-  int grpc_getattr(const char *client_path, struct stat *statbuf)
-  {
-    ClientContext context;
-    Path pathName;
-    pathName.set_path(client_path);
-    Stbuf stbuf;
+            // The actual RPC.  
+            Status status = stub_->grpc_mkdir(&context, req, &err);
+            std::cout<<err.err()<<std::endl;
+            // Act upon its status.
+            if (status.ok()) {
+                return 0;
+            } else {
+                std::cout << status.error_code() << ": " << status.error_message()
+                    << std::endl;
+                return err.err();
+            }
+        }
 
-// The actual RPC.  
-    Status status = stub_->grpc_getattr(&context, pathName, &stbuf);
-    memset(statbuf, 0, sizeof(struct stat));
+        int grpc_getattr(const char *client_path, struct stat *statbuf)
+        {
+            ClientContext context;
+            Path pathName;
+            pathName.set_path(client_path);
+            Stbuf stbuf;
 
-    statbuf->st_mode = stbuf.stmode();
-    statbuf->st_nlink = stbuf.stnlink();
-    statbuf->st_size = stbuf.stsize();
-	// std::cout << "link: " << stbuf.stnlink() << std::endl;
-	// std::cout << "size: *** : " << stbuf.stsize() << std::endl;
-	// std::cout<<"stbuf.err()="<<stbuf.err()<<std::endl;
+            // The actual RPC.  
+            Status status = stub_->grpc_getattr(&context, pathName, &stbuf);
+            memset(statbuf, 0, sizeof(struct stat));
 
-    std::cout<<"stbuf.err()="<<stbuf.err()<<std::endl;
-    return stbuf.err();
-    	//return -2;
-  }
+            statbuf->st_mode = stbuf.stmode();
+            statbuf->st_nlink = stbuf.stnlink();
+            statbuf->st_size = stbuf.stsize();
+            // std::cout << "link: " << stbuf.stnlink() << std::endl;
+            // std::cout << "size: *** : " << stbuf.stsize() << std::endl;
+            // std::cout<<"stbuf.err()="<<stbuf.err()<<std::endl;
 
-  int grpc_unlink(const char *path) {
-    ClientContext context;
-    Path pathname;
-    pathname.set_path(path);
-    Errno err;
+            std::cout<<"stbuf.err()="<<stbuf.err()<<std::endl;
+            return stbuf.err();
+            //return -2;
+        }
 
-    Status s = stub_->grpc_unlink(&context, pathname, &err);
-    std::cout<<"unlink err()="<<err.err()<<std::endl;
-    //if(status.ok()){
-    return err.err();
-    //}
-  }
+        int grpc_unlink(const char *path) {
+            ClientContext context;
+            Path pathname;
+            pathname.set_path(path);
+            Errno err;
 
-  int grpc_readdir(const char *client_path, void *buf, fuse_fill_dir_t filler)
-  {
-    ClientContext context;
-    Path pathName;
-    pathName.set_path(client_path);
-    Directory directory;
+            Status s = stub_->grpc_unlink(&context, pathname, &err);
+            std::cout<<"unlink err()="<<err.err()<<std::endl;
+            //if(status.ok()){
+            return err.err();
+            //}
+        }
 
-    std::unique_ptr<ClientReader<Directory> >reader(
-     stub_->grpc_readdir(&context, pathName));
-    while (reader->Read(&directory)){
-      struct stat st;
-      memset(&st, 0, sizeof(st));
-      st.st_ino = directory.dino();
-      st.st_mode = directory.dtype() << 12;
-      if (filler(buf, directory.dname().c_str(), &st, 0, static_cast<fuse_fill_dir_flags>(0)))
-        break; 
-    }
+        int grpc_readdir(const char *client_path, void *buf, fuse_fill_dir_t filler)
+        {
+            ClientContext context;
+            Path pathName;
+            pathName.set_path(client_path);
+            Directory directory;
 
-    Status status = reader->Finish();
-   // if (status.ok()) {
-   //    std::cout << "readdir rpc succeeded." << std::endl;
-   //    return 0;
-   //  } else {
-   //    std::cout << "readdir rpc failed." << std::endl;
-    return directory.err();
-	// }
-  }
+            std::unique_ptr<ClientReader<Directory> >reader(
+                    stub_->grpc_readdir(&context, pathName));
+            while (reader->Read(&directory)){
+                struct stat st;
+                memset(&st, 0, sizeof(st));
+                st.st_ino = directory.dino();
+                st.st_mode = directory.dtype() << 12;
+                if (filler(buf, directory.dname().c_str(), &st, 0, static_cast<fuse_fill_dir_flags>(0)))
+                    break; 
+            }
 
-  int grpc_write(const char * path, const char* buffer, size_t size, off_t offset, struct fuse_file_info *fi) {
-    ClientContext context;
-     // Set timeout for API, Connection timeout in seconds
-    gpr_timespec timeOut;
-    timeOut.tv_sec=5; //5s
-    timeOut.tv_nsec=0;
-    timeOut.clock_type=GPR_TIMESPAN;
-    context.set_deadline(timeOut);
+            Status status = reader->Finish();
+            // if (status.ok()) {
+            //    std::cout << "readdir rpc succeeded." << std::endl;
+            //    return 0;
+            //  } else {
+            //    std::cout << "readdir rpc failed." << std::endl;
+            return directory.err();
+            // }
+        }
 
-    WriteRequest req;
-    req.set_path(path);
-    req.set_buffer(buffer);
-    req.set_size(size);
-    req.set_offset(offset);
-    req.set_fh(fi->fh);
-    WriteBytes nbytes;
+        int grpc_write(const char * path, const char* buffer, size_t size, off_t offset, struct fuse_file_info *fi) {
+            ClientContext context;
+            // Set timeout for API, Connection timeout in seconds
+            gpr_timespec timeOut;
+            timeOut.tv_sec=5; //5s
+            timeOut.tv_nsec=0;
+            timeOut.clock_type=GPR_TIMESPAN;
+            context.set_deadline(timeOut);
 
-    std::cout<<"===================write starts============="<<std::endl;
-    Status s = stub_->grpc_write(&context, req, &nbytes);
-    std::cout<<"===================write ends============="<<std::endl;
-    std::cout<<"------------------------status.error_code()="<<s.error_code()<<std::endl;
-  if(s.error_code()==DEADLINE_EXCEEDED){//timeout
-    for (int i=0; i<5; i++){ //retry 5 times
-    ClientContext context_rewrite;
-    std::cout<<"===================REwrite starts============="<<std::endl;
-    Status s_rewrite = stub_->grpc_write(&context_rewrite, req, &nbytes);
-    if (s.ok())
-      break;
-    std::cout<<"===================REwrite ends============="<<std::endl;
-    }
-    std::cout<<"Timeout: After 5 times REread, still failed to write the file."<<std::endl;
-    return 1;
-    }
+            WriteRequest req;
+            req.set_path(path);
+            req.set_buffer(buffer);
+            req.set_size(size);
+            req.set_offset(offset);
+            req.set_fh(fi->fh);
+            WriteBytes nbytes;
 
-    if (!nbytes.err()){//no error happens
-     fi->fh=nbytes.fh(); // in case of server crash, save the new file handle returned by sever 
-     return nbytes.nbytes();
-    }else{
-    return nbytes.err();
-    }
+            std::cout<<"===================write starts============="<<std::endl;
+            Status s = stub_->grpc_write(&context, req, &nbytes);
+            std::cout<<"===================write ends============="<<std::endl;
+            std::cout<<"------------------------status.error_code()="<<s.error_code()<<std::endl;
+            if(s.error_code()==DEADLINE_EXCEEDED){//timeout
+                for (int i=0; i<5; i++){ //retry 5 times
+                    ClientContext context_rewrite;
+                    std::cout<<"===================REwrite starts============="<<std::endl;
+                    Status s_rewrite = stub_->grpc_write(&context_rewrite, req, &nbytes);
+                    if (s.ok())
+                        break;
+                    std::cout<<"===================REwrite ends============="<<std::endl;
+                }
+                std::cout<<"Timeout: After 5 times REread, still failed to write the file."<<std::endl;
+                return 1;
+            }
 
-  }
+            if (!nbytes.err()){//no error happens
+                fi->fh=nbytes.fh(); // in case of server crash, save the new file handle returned by sever 
+                return nbytes.nbytes();
+            }else{
+                return nbytes.err();
+            }
 
-  int grpc_flush(const char* path, struct fuse_file_info *fi) 
-  {
-    ClientContext context;
-    FlushReq req;
-    req.set_path(path);
-    req.set_fh(fi->fh);
-    Errno err;
+        }
 
-    Status s = stub_->grpc_flush(&context, req, &err);
-    if(s.ok()) {
-      std::cout << "flush rpc succeeded." << std::endl;
-    } else {
-      std::cout << "flush rpc failed." << std::endl;
-      return err.err();
-    }
-    return 0;
-  }
+        int grpc_flush(const char* path, struct fuse_file_info *fi) 
+        {
+            ClientContext context;
+            FlushReq req;
+            req.set_path(path);
+            req.set_fh(fi->fh);
+            Errno err;
 
-  int grpc_open(const char *client_path, struct fuse_file_info *fi)
-  {
-   ClientContext context;
-   PathFlags path_flags;
-   path_flags.set_path(client_path);
-   path_flags.set_flags(fi->flags);
-   FileHandle file_handle;
-   Status status = stub_->grpc_open(&context, path_flags, &file_handle);
-  	//fh=file_handle.fh();
-   fi->fh = file_handle.fh();
-   return file_handle.err();
- }
+            Status s = stub_->grpc_flush(&context, req, &err);
+            if(s.ok()) {
+                std::cout << "flush rpc succeeded." << std::endl;
+            } else {
+                std::cout << "flush rpc failed." << std::endl;
+                return err.err();
+            }
+            return 0;
+        }
 
- int grpc_read(const char *client_path, char *buf, size_t size, off_t offset, uint64_t* fh)
- {
+        int grpc_open(const char *client_path, struct fuse_file_info *fi)
+        {
+            ClientContext context;
+            PathFlags path_flags;
+            path_flags.set_path(client_path);
+            path_flags.set_flags(fi->flags);
+            FileHandle file_handle;
+            Status status = stub_->grpc_open(&context, path_flags, &file_handle);
+            //fh=file_handle.fh();
+            fi->fh = file_handle.fh();
+            return file_handle.err();
+        }
 
-  ClientContext context;
-  // Set timeout for API, Connection timeout in seconds
-  gpr_timespec timeOut;
-  timeOut.tv_sec=5; //5s
-  timeOut.tv_nsec=0;
-  timeOut.clock_type=GPR_TIMESPAN;
-  context.set_deadline(timeOut);
+        int grpc_read(const char *client_path, char *buf, size_t size, off_t offset, uint64_t* fh)
+        {
 
-  ReadReq read_req;
-  read_req.set_path(client_path);
-  read_req.set_size(size);
-  read_req.set_offset(offset);
-  read_req.set_fh(*fh);
-  Buffer buffer;
-  std::cout<<"===================read starts============="<<std::endl;
-  Status status = stub_->grpc_read(&context, read_req, &buffer);
-  std::cout<<"===================read ends============="<<std::endl;
+            ClientContext context;
+            // Set timeout for API, Connection timeout in seconds
+            gpr_timespec timeOut;
+            timeOut.tv_sec=5; //5s
+            timeOut.tv_nsec=0;
+            timeOut.clock_type=GPR_TIMESPAN;
+            context.set_deadline(timeOut);
 
-  std::cout<<"------------------------status.error_code()="<<status.error_code()<<std::endl;
-  if(status.error_code()==DEADLINE_EXCEEDED){ //timeout
-    for (int i=0; i<5; i++){ //retry 5 times
-    ClientContext context_reread;
-    std::cout<<"===================REread starts============="<<std::endl;
-    Status status_reread = stub_->grpc_read(&context_reread, read_req, &buffer);
-    if (status.ok())
-      break;
-    std::cout<<"===================REread ends============="<<std::endl;
-    }
-    std::cout<<"Timeout: After 5 times REread, still failed to read the file."<<std::endl;
-    return 1;
-  }
+            ReadReq read_req;
+            read_req.set_path(client_path);
+            read_req.set_size(size);
+            read_req.set_offset(offset);
+            read_req.set_fh(*fh);
+            Buffer buffer;
+            std::cout<<"===================read starts============="<<std::endl;
+            Status status = stub_->grpc_read(&context, read_req, &buffer);
+            std::cout<<"===================read ends============="<<std::endl;
 
-   if (!buffer.err()){//no error happens
-     *fh=buffer.fh(); // in case of server crash, save the new file handle returned by sever 
-     std::string buf_string(buffer.buffer());
-     std::strcpy(buf, buf_string.c_str());
-     return buffer.nbytes();
-   }else{
-    return buffer.err();
-  }
-}
+            std::cout<<"------------------------status.error_code()="<<status.error_code()<<std::endl;
+            if(status.error_code()==DEADLINE_EXCEEDED){ //timeout
+                for (int i=0; i<5; i++){ //retry 5 times
+                    ClientContext context_reread;
+                    std::cout<<"===================REread starts============="<<std::endl;
+                    Status status_reread = stub_->grpc_read(&context_reread, read_req, &buffer);
+                    if (status.ok())
+                        break;
+                    std::cout<<"===================REread ends============="<<std::endl;
+                }
+                std::cout<<"Timeout: After 5 times REread, still failed to read the file."<<std::endl;
+                return 1;
+            }
 
-int grpc_rename(const char *from, const char *to, unsigned int flags)
-{
- ClientContext context;
- RenameReq rename_req;
- rename_req.set_from(from);
- rename_req.set_to(to);
- rename_req.set_flags(flags);
- Errno err;
- Status status = stub_->grpc_rename(&context, rename_req, &err);
- return err.err();
-}
+            if (!buffer.err()){//no error happens
+                *fh=buffer.fh(); // in case of server crash, save the new file handle returned by sever 
+                std::string buf_string(buffer.buffer());
+                std::strcpy(buf, buf_string.c_str());
+                return buffer.nbytes();
+            }else{
+                return buffer.err();
+            }
+        }
 
-int grpc_rmdir(const char *path)
-{
-  ClientContext context;
-  Path client_path;
-  client_path.set_path(path);
-  Errno err;
-  Status status = stub_->grpc_rmdir(&context, client_path, &err);
-  std::cout<<"rmdir: err.err()="<<err.err()<<std::endl;
-  return err.err();
-}
+        int grpc_rename(const char *from, const char *to, unsigned int flags)
+        {
+            ClientContext context;
+            RenameReq rename_req;
+            rename_req.set_from(from);
+            rename_req.set_to(to);
+            rename_req.set_flags(flags);
+            Errno err;
+            Status status = stub_->grpc_rename(&context, rename_req, &err);
+            return err.err();
+        }
 
-int grpc_release(const char *path, struct fuse_file_info *fi) 
-{
-  ClientContext context;
-  ReleaseReq req;
-  req.set_path(path);
-  req.set_fh(fi->fh);
-  Errno err;
-  Status s = stub_->grpc_release(&context, req, &err);
-  return err.err();
-}
+        int grpc_rmdir(const char *path)
+        {
+            ClientContext context;
+            Path client_path;
+            client_path.set_path(path);
+            Errno err;
+            Status status = stub_->grpc_rmdir(&context, client_path, &err);
+            std::cout<<"rmdir: err.err()="<<err.err()<<std::endl;
+            return err.err();
+        }
 
-private:
-  std::unique_ptr<Greeter::Stub> stub_;
+        int grpc_release(const char *path, struct fuse_file_info *fi) 
+        {
+            ClientContext context;
+            ReleaseReq req;
+            req.set_path(path);
+            req.set_fh(fi->fh);
+            Errno err;
+            Status s = stub_->grpc_release(&context, req, &err);
+            return err.err();
+        }
+
+    private:
+        std::unique_ptr<Greeter::Stub> stub_;
 };
 
 
@@ -330,170 +330,170 @@ private:
  * different values on the command line.
  */
 static struct options {
-	const char *filename;
-	const char *contents;
-  GreeterClient *greeter;
-  int show_help;
+    const char *filename;
+    const char *contents;
+    GreeterClient *greeter;
+    int show_help;
 } options;
 
 #define OPTION(t, p)                           \
 { t, offsetof(struct options, p), 1 }
 static const struct fuse_opt option_spec[] = {
-	OPTION("--name=%s", filename),
-	OPTION("--contents=%s", contents),
-	OPTION("-h", show_help),
-	OPTION("--help", show_help),
-	FUSE_OPT_END
+    OPTION("--name=%s", filename),
+    OPTION("--contents=%s", contents),
+    OPTION("-h", show_help),
+    OPTION("--help", show_help),
+    FUSE_OPT_END
 };
 
 static void *hello_init(struct fuse_conn_info *conn,
- struct fuse_config *cfg)
+        struct fuse_config *cfg)
 {
-	(void) conn;
-	cfg->kernel_cache = 1;
-	return NULL;
+    (void) conn;
+    cfg->kernel_cache = 1;
+    return NULL;
 }
 
 static int grpc_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-  off_t offset, struct fuse_file_info *fi,
-  enum fuse_readdir_flags flags)
+        off_t offset, struct fuse_file_info *fi,
+        enum fuse_readdir_flags flags)
 {
-	(void) offset;
-	(void) fi;
-	(void) flags;
-	return options.greeter->grpc_readdir(path, buf, filler);
+    (void) offset;
+    (void) fi;
+    (void) flags;
+    return options.greeter->grpc_readdir(path, buf, filler);
 }
 
 static int grpc_open(const char *path, struct fuse_file_info *fi)
 {
-//	return options.greeter->grpc_open(path, fi->flags, fi->fh);
-  printf("===============before call grpc_open(), file heandle = %d \n", fi->fh);
-  return options.greeter->grpc_open(path, fi);
-  printf("===============after call grpc_open(), file heandle = %d \n", fi->fh);
+    //	return options.greeter->grpc_open(path, fi->flags, fi->fh);
+    printf("===============before call grpc_open(), file heandle = %d \n", fi->fh);
+    return options.greeter->grpc_open(path, fi);
+    printf("===============after call grpc_open(), file heandle = %d \n", fi->fh);
 }
 
 static int grpc_read(const char *path, char *buf, size_t size, off_t offset,
-  struct fuse_file_info *fi)
+        struct fuse_file_info *fi)
 {
-	//in case of server crash during call grpc_read(), file handler changes.
-  printf("===============before call grpc_read(), file heandle = %d \n", fi->fh);
-  int ret=options.greeter->grpc_read(path, buf, size, offset, &(fi->fh));
-  printf("===============after call grpc_read(), file heandle = %d \n", fi->fh);
-  return ret;
+    //in case of server crash during call grpc_read(), file handler changes.
+    printf("===============before call grpc_read(), file heandle = %d \n", fi->fh);
+    int ret=options.greeter->grpc_read(path, buf, size, offset, &(fi->fh));
+    printf("===============after call grpc_read(), file heandle = %d \n", fi->fh);
+    return ret;
 }
 
 static int grpc_write(const char* path, const char* buffer, size_t size, off_t offset, struct fuse_file_info *fi) 
 {
-  //in case of server crash during call grpc_write(), file handler changes.
-  printf("===============before call grpc_write(), file heandle = %d \n", fi->fh);
-  int ret=options.greeter->grpc_write(path, buffer, size, offset, fi);
-  printf("===============before call grpc_write(), file heandle = %d \n", fi->fh);
-  return ret;
+    //in case of server crash during call grpc_write(), file handler changes.
+    printf("===============before call grpc_write(), file heandle = %d \n", fi->fh);
+    int ret=options.greeter->grpc_write(path, buffer, size, offset, fi);
+    printf("===============before call grpc_write(), file heandle = %d \n", fi->fh);
+    return ret;
 }
 
 static int grpc_getattr(const char *path, struct stat *statbuf,struct fuse_file_info *fi)
 {
-  (void) fi;
-  return options.greeter->grpc_getattr(path, statbuf);
+    (void) fi;
+    return options.greeter->grpc_getattr(path, statbuf);
 } 
 
 static int grpc_mkdir(const char *path, mode_t mode)
 {
-  //mode=S_IRWXU | S_IRWXG | S_IRWXO
-  return options.greeter->grpc_mkdir(path, mode);
+    //mode=S_IRWXU | S_IRWXG | S_IRWXO
+    return options.greeter->grpc_mkdir(path, mode);
 }
 
 static int grpc_unlink(const char* path) {
-  return options.greeter->grpc_unlink(path);
+    return options.greeter->grpc_unlink(path);
 }
 
 static int grpc_flush(const char* path, struct fuse_file_info *fi) 
 {
-  return options.greeter->grpc_flush(path, fi);
+    return options.greeter->grpc_flush(path, fi);
 }
 
 static int grpc_rename(const char *from, const char *to, unsigned int flags) 
 {
-  return options.greeter->grpc_rename(from,to, flags);
+    return options.greeter->grpc_rename(from,to, flags);
 }
 
 static int grpc_rmdir(const char *path) 
 {
-  return options.greeter->grpc_rmdir(path);
+    return options.greeter->grpc_rmdir(path);
 }
 
 static int grpc_release(const char *path, struct fuse_file_info *fi) 
 {
-  return options.greeter->grpc_release(path, fi);
+    return options.greeter->grpc_release(path, fi);
 }
 
 static int grpc_create(const char* path, mode_t mode, struct fuse_file_info *fi) {
-  printf("===============before call grpc_create(), file heandle = %d \n", fi->fh);
-  return options.greeter->grpc_create(path, mode, fi);
-  printf("===============after call grpc_create(), file heandle = %d \n", fi->fh);
+    printf("===============before call grpc_create(), file heandle = %d \n", fi->fh);
+    return options.greeter->grpc_create(path, mode, fi);
+    printf("===============after call grpc_create(), file heandle = %d \n", fi->fh);
 }
 
 static int grpc_utimens(const char* path, const struct timespec time[2], struct fuse_file_info *fi) {
-  return options.greeter->grpc_utimens(path, time);
+    return options.greeter->grpc_utimens(path, time);
 }
 
 static struct hello_operations : fuse_operations {
-	hello_operations() {
-		init    = hello_init;
-		getattr	= grpc_getattr;//hello_getattr;//grpc_getattr;
-		readdir	= grpc_readdir; //hello_readdir;
-		open	= grpc_open; //hello_open;
-		read	= grpc_read; //hello_read;
-    mkdir	= grpc_mkdir;
-    unlink  = grpc_unlink;
-    write   = grpc_write;
-    flush   = grpc_flush;
-    rename  = grpc_rename;
-    rmdir   = grpc_rmdir;
-    release = grpc_release;
-    create  = grpc_create;
-    utimens   = grpc_utimens;
-  }
+    hello_operations() {
+        init    = hello_init;
+        getattr	= grpc_getattr;//hello_getattr;//grpc_getattr;
+        readdir	= grpc_readdir; //hello_readdir;
+        open	= grpc_open; //hello_open;
+        read	= grpc_read; //hello_read;
+        mkdir	= grpc_mkdir;
+        unlink  = grpc_unlink;
+        write   = grpc_write;
+        flush   = grpc_flush;
+        rename  = grpc_rename;
+        rmdir   = grpc_rmdir;
+        release = grpc_release;
+        create  = grpc_create;
+        utimens   = grpc_utimens;
+    }
 } hello_oper_init;
 
 static void show_help(const char *progname)
 {
-	std::cout<<"usage: "<<progname<<" [options] <mountpoint>\n\n";
-	/*printf("File-system specific options:\n"
-	       "    --name=<s>          Name of the \"hello\" file\n"
-	       "                        (default: \"hello\")\n"
-	       "    --contents=<s>      Contents \"hello\" file\n"
-	       "                        (default \"Hello, World!\\n\")\n"
-	       "\n");*/
+    std::cout<<"usage: "<<progname<<" [options] <mountpoint>\n\n";
+    /*printf("File-system specific options:\n"
+      "    --name=<s>          Name of the \"hello\" file\n"
+      "                        (default: \"hello\")\n"
+      "    --contents=<s>      Contents \"hello\" file\n"
+      "                        (default \"Hello, World!\\n\")\n"
+      "\n");*/
 }
 
 int main(int argc, char *argv[])
 {
-	struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
+    struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
 
-	/* Set defaults -- we have to use strdup so that
-	   fuse_opt_parse can free the defaults if other
-	   values are specified */
-	options.filename = strdup("hello");
-	options.contents = strdup("Hello World!\n");
-  options.greeter = new GreeterClient(grpc::CreateChannel(
-    "localhost:50051", grpc::InsecureChannelCredentials()));
-	/* Parse options */
-  if (fuse_opt_parse(&args, &options, option_spec, NULL) == -1)
-    return 1;
+    /* Set defaults -- we have to use strdup so that
+       fuse_opt_parse can free the defaults if other
+       values are specified */
+    options.filename = strdup("hello");
+    options.contents = strdup("Hello World!\n");
+    options.greeter = new GreeterClient(grpc::CreateChannel(
+                "localhost:50051", grpc::InsecureChannelCredentials()));
+    /* Parse options */
+    if (fuse_opt_parse(&args, &options, option_spec, NULL) == -1)
+        return 1;
 
-	/* When --help is specified, first print our own file-system
-	   specific help text, then signal fuse_main to show
-	   additional help (by adding `--help` to the options again)
-	   without usage: line (by setting argv[0] to the empty
-	   string) */
-  if (options.show_help) {
-    show_help(argv[0]);
-    assert(fuse_opt_add_arg(&args, "--help") == 0);
-    args.argv[0] = (char*) "";
-  }
+    /* When --help is specified, first print our own file-system
+       specific help text, then signal fuse_main to show
+       additional help (by adding `--help` to the options again)
+       without usage: line (by setting argv[0] to the empty
+       string) */
+    if (options.show_help) {
+        show_help(argv[0]);
+        assert(fuse_opt_add_arg(&args, "--help") == 0);
+        args.argv[0] = (char*) "";
+    }
 
 
-  return fuse_main(args.argc, args.argv, &hello_oper_init, NULL);
+    return fuse_main(args.argc, args.argv, &hello_oper_init, NULL);
 }
