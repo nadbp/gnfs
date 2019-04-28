@@ -52,12 +52,32 @@ make
 # Run
 In window #1, start server:
 ```bash
+mkdir \<server_side_mount_folder\>
 ./greeter_server \<server_side_mount_folder\>
+```
+For example
+```bash
+mkdir ~/Download/server_mnt
+./greeter_server  ~/Download/server_mnt
 ```
 
 In window #2, start client:
 ```bash
+mkdir \<client_side_mount_folder\>
 ./greeter_client \<client_side_mount_folder\>
 ```
-Try creat some folder and file in the \<client_side_mount_folder\>, and you will see it appears under the \<server_side_mount_folder\>.
+For example
+```bash
+mkdir ~/Download/client_mnt
+./greeter_client  ~/Download/client_mnt
+```
 
+Try creat some folder and file in the \<client_side_mount_folder\>, and you will see it appears under the \<server_side_mount_folder\>.
+You can also see some debug info printed out in window #1.
+
+# Clean up
+Stop the server by typing `Ctrl-C` in window #1.
+Unmount the \<client_side_mount_folder\>:
+```bash
+fusermount -u \<client_side_mount_folder\>
+```
