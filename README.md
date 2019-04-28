@@ -72,8 +72,13 @@ mkdir ~/Download/client_mnt
 ./greeter_client  ~/Download/client_mnt
 ```
 
-Try creat some folder and file in the \<client_side_mount_folder\>, and you will see it appears under the \<server_side_mount_folder\>.
+Try creat some folder and file in the \<client_side_mount_folder\>, and you will see it appears under the \<server_side_mount_folder\>. If there are some files are folders existing in the \<server_side_mount_folder\> before starting the gnfs server and client, they will appear under the \<client_side_mount_folder\> immediately after the server and client are started.
+
+<img src="images/creating_folder.png" width="500">
+<img src="images/created.png" width="500">
+
 You can also see some debug info printed out in window #1.
+<img src="images/server_debug.png" width="500">
 
 # Clean up
 Stop the server by typing `Ctrl-C` in window #1.
