@@ -1,5 +1,6 @@
-# gnfs
-
+# A user space file system
+ 
+# Install dependencies
 ## Install fuse
 Download `fuse-3.0.0.tar.gz` from [Github](https://github.com/libfuse/libfuse/releases?after=fuse-3.2.3), extract it and install
 ```bash
@@ -38,3 +39,25 @@ make install
 ```
 
 Refer to [C++ Quick Start](https://grpc.io/docs/quickstart/cpp/), [gRPC C++ - Building from source](https://github.com/grpc/grpc/blob/master/BUILDING.md),  for further installation help.
+
+# Clone and build 
+```bash
+git clone git@github.com:ArtoriaRen/gnfs.git
+cd gnfs
+git checkout write_behind
+cd src
+make
+```
+
+# Run
+In window #1, start server:
+```bash
+./greeter_server \<server_side_mount_folder\>
+```
+
+In window #2, start client:
+```bash
+./greeter_client \<client_side_mount_folder\>
+```
+Try creat some folder and file in the \<client_side_mount_folder\>, and you will see it appears under the \<server_side_mount_folder\>.
+
