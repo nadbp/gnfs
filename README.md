@@ -52,8 +52,8 @@ make
 # Run
 In window #1, start server:
 ```bash
-mkdir \<server_side_mount_folder\>
-./greeter_server \<server_side_mount_folder\>
+mkdir <server_side_mount_folder>
+./greeter_server <server_side_mount_folder>
 ```
 For example
 ```bash
@@ -63,8 +63,8 @@ mkdir ~/Download/server_mnt
 
 In window #2, start client:
 ```bash
-mkdir \<client_side_mount_folder\>
-./greeter_client \<client_side_mount_folder\>
+mkdir <client_side_mount_folder>
+./greeter_client <client_side_mount_folder>
 ```
 For example
 ```bash
@@ -78,11 +78,12 @@ Try creat some folder and file in the \<client_side_mount_folder\>, and you will
 <img src="images/created.png" width="500">
 
 You can also see some debug info printed out in window #1.
+
 <img src="images/server_debug.png" width="500">
 
 # Clean up
 Stop the server by typing `Ctrl-C` in window #1.
 Unmount the \<client_side_mount_folder\>:
 ```bash
-fusermount -u \<client_side_mount_folder\>
+fusermount -u <client_side_mount_folder>
 ```
